@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgroTech — Dashboard</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f4f1;color:#1a1a1a}
+    .shell{display:flex;min-height:100vh}
+    .sidebar{width:220px;background:#1a3d2b;display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;overflow-y:auto}
+    .sb-logo{padding:20px 16px 14px;border-bottom:1px solid rgba(255,255,255,0.1)}
+    .sb-logo h1{font-size:20px;font-weight:800;color:#fff}
+    .sb-logo h1 span{color:#52b788}
+    .sb-logo p{font-size:11px;color:rgba(255,255,255,0.35);margin-top:2px}
+    .sb-user{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.1)}
+    .sb-user .name{font-size:13px;font-weight:600;color:#fff}
+    .sb-user .info{font-size:11px;color:rgba(255,255,255,0.45);margin-top:2px}
+    .sb-user .badge{display:inline-block;background:#f4a261;color:#7a3c0a;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;margin-top:5px}
+    .sb-nav{flex:1;padding:8px 0}
+    .sb-nav a{display:flex;align-items:center;gap:10px;padding:10px 16px;color:rgba(255,255,255,0.65);text-decoration:none;font-size:13px;font-weight:500;border-left:3px solid transparent;transition:all 0.15s}
+    .sb-nav a:hover{background:rgba(255,255,255,0.07);color:#fff}
+    .sb-nav a.active{background:rgba(82,183,136,0.15);color:#fff;border-left-color:#52b788}
+    .sb-nav a .ic{font-size:17px;width:20px;text-align:center}
+    .sb-bottom{padding:14px 16px;border-top:1px solid rgba(255,255,255,0.1)}
+    .logout-btn{background:none;border:none;color:rgba(255,255,255,0.35);font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px}
+    .logout-btn:hover{color:rgba(255,255,255,0.7)}
+    .main{margin-left:220px;flex:1;display:flex;flex-direction:column}
+    .topbar{background:#fff;border-bottom:1px solid #d5e8da;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+    .topbar h2{font-size:18px;font-weight:700;color:#1a3d2b}
+    .topbar .date{font-size:12px;color:#888;margin-top:2px}
+    .topbar-right{display:flex;align-items:center;gap:10px}
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;text-decoration:none;transition:all 0.15s}
+    .btn-primary{background:#1a3d2b;color:#fff}
+    .btn-primary:hover{background:#2d6a4f}
+    .btn-outline{background:transparent;border:1.5px solid #1a3d2b;color:#1a3d2b}
+    .btn-outline:hover{background:#eaf3de}
+    .body{padding:22px 24px}
+    .weather-bar{background:#1a3d2b;border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:16px;margin-bottom:16px;color:#fff}
+    .w-icon{font-size:40px}
+    .w-main h3{font-size:22px;font-weight:700}
+    .w-main p{font-size:12px;color:rgba(255,255,255,0.6);margin-top:2px}
+    .w-stats{margin-left:auto;display:flex;gap:20px}
+    .w-stat{text-align:center}
+    .w-stat .val{font-size:16px;font-weight:700}
+    .w-stat .lbl{font-size:10px;color:rgba(255,255,255,0.5);margin-top:1px}
+    .w-warn{background:rgba(244,162,97,0.15);border:1px solid rgba(244,162,97,0.4);border-radius:8px;padding:8px 14px;font-size:12px;color:#f4a261;margin-bottom:16px}
+    .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+    .stat-card{background:#fff;border-radius:12px;border:1px solid #d5e8da;padding:16px 18px}
+    .stat-card .s-icon{font-size:26px;margin-bottom:8px}
+    .stat-card .s-val{font-size:28px;font-weight:800;color:#1a3d2b;line-height:1}
+    .stat-card .s-lbl{font-size:12px;color:#888;margin-top:4px}
+    .stat-card.alert{border-left:4px solid #e24b4a}
+    .stat-card.warn{border-left:4px solid #f4a261}
+    .stat-card.good{border-left:4px solid #52b788}
+    .s-val.red{color:#e24b4a}
+    .two-col{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-bottom:16px}
+    .card{background:#fff;border-radius:12px;border:1px solid #d5e8da;padding:18px}
+    .card-title{font-size:13px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+    .card-title a{font-size:11px;color:#52b788;text-decoration:none;font-weight:600;text-transform:none;letter-spacing:0}
+    .chart-wrap{display:flex;align-items:flex-end;gap:6px;height:80px}
+    .bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px}
+    .bar{width:100%;border-radius:4px 4px 0 0;background:#d5e8da;min-height:4px;transition:height 0.4s}
+    .bar.active{background:#1a3d2b}
+    .bar-lbl{font-size:10px;color:#999}
+    .task-item{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #f0f4f1}
+    .task-item:last-child{border-bottom:none}
+    .task-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+    .dot-green{background:#52b788}.dot-red{background:#e24b4a}.dot-amber{background:#f4a261}
+    .task-name{font-size:13px;font-weight:600}
+    .task-meta{font-size:11px;color:#888;margin-top:1px}
+    .badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap}
+    .badge-green{background:#eaf3de;color:#3b6d11}
+    .badge-red{background:#fcebeb;color:#a32d2d}
+    .badge-amber{background:#faeeda;color:#854f0b}
+    .badge-grey{background:#f0f0f0;color:#666}
+    .three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+    .inv-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f4f1}
+    .inv-item:last-child{border-bottom:none}
+    .inv-icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+    .inv-name{font-size:12px;font-weight:600}
+    .inv-qty{font-size:11px;color:#888;margin-top:1px}
+    .donut-wrap{display:flex;align-items:center;justify-content:center;padding:8px 0}
+    .donut-legend{display:flex;justify-content:center;gap:14px;margin-top:10px}
+    .legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:#666}
+    .legend-dot{width:8px;height:8px;border-radius:2px}
+    .crop-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f4f1}
+    .crop-item:last-child{border-bottom:none}
+    .crop-icon{font-size:20px;width:28px;text-align:center}
+    .crop-name{font-size:13px;font-weight:600}
+    .crop-days{font-size:11px;color:#888;margin-top:1px}
+    .actions-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+    .empty{text-align:center;padding:24px 10px;color:#aaa;font-size:13px}
+    .empty .e-icon{font-size:28px;margin-bottom:6px}
+    .spinner{width:22px;height:22px;border:3px solid #d5e8da;border-top-color:#52b788;border-radius:50%;animation:spin 0.7s linear infinite;margin:20px auto}
+    @keyframes spin{to{transform:rotate(360deg)}}
+  </style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="sb-logo"><h1>🌿 Agro<span>Tech</span></h1><p>Smart Farming · Kenya</p></div>
+    <div class="sb-user">
+      <div class="name" id="sb-name">Loading...</div>
+      <div class="info" id="sb-info"></div>
+      <span class="badge" id="sb-badge" style="display:none"></span>
+    </div>
+    <nav class="sb-nav">
+      <a href="dashboard.html" class="active"><span class="ic">🏠</span> Dashboard</a>
+      <a href="scan.html"><span class="ic">📷</span> Scan Crop</a>
+      <a href="history.html"><span class="ic">📋</span> Scan History</a>
+      <a href="schedule.html"><span class="ic">📅</span> Farm Schedule</a>
+      <a href="inventory.html"><span class="ic">📦</span> Inventory</a>
+      <a href="profit.html"><span class="ic">💰</span> Profit & Harvest</a>
+      <a href="subscription.html"><span class="ic">⭐</span> Subscription</a>
+      <a href="profile.html"><span class="ic">👤</span> Profile</a>
+    </nav>
+    <div class="sb-bottom">
+      <button class="logout-btn" onclick="doLogout()">🚪 Log out</button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <h2 id="greeting">Good morning 🌿</h2>
+        <div class="date" id="today-date"></div>
+      </div>
+      <div class="topbar-right">
+        <a href="scan.html" class="btn btn-primary">📷 Scan Crop</a>
+        <a href="schedule.html" class="btn btn-outline">+ Add Task</a>
+      </div>
+    </div>
+
+    <div class="body">
+      <div class="weather-bar">
+        <div class="w-icon" id="w-icon">🌤️</div>
+        <div class="w-main"><h3 id="w-temp">--°C</h3><p id="w-desc">Loading weather...</p></div>
+        <div class="w-stats">
+          <div class="w-stat"><div class="val" id="w-hum">--%</div><div class="lbl">Humidity</div></div>
+          <div class="w-stat"><div class="val" id="w-wind">--</div><div class="lbl">Wind km/h</div></div>
+          <div class="w-stat"><div class="val" id="w-rain">--mm</div><div class="lbl">Rain today</div></div>
+          <div class="w-stat"><div class="val" id="w-spray" style="color:#52b788">--</div><div class="lbl">Spray today?</div></div>
+        </div>
+      </div>
+      <div class="w-warn" id="spray-warn" style="display:none">⚠️ High humidity or rain today — not a good day to spray fungicides.</div>
+
+      <div class="stats-row">
+        <div class="stat-card good"><div class="s-icon">📷</div><div class="s-val" id="stat-scans"><div class="spinner"></div></div><div class="s-lbl">Total Scans</div></div>
+        <div class="stat-card" id="stat-inv-card"><div class="s-icon">📦</div><div class="s-val" id="stat-inv"><div class="spinner"></div></div><div class="s-lbl">Low Stock Alerts</div></div>
+        <div class="stat-card good"><div class="s-icon">💰</div><div class="s-val" id="stat-profit"><div class="spinner"></div></div><div class="s-lbl">Net Profit (KES)</div></div>
+        <div class="stat-card" id="stat-task-card"><div class="s-icon">📅</div><div class="s-val" id="stat-tasks"><div class="spinner"></div></div><div class="s-lbl">Overdue Tasks</div></div>
+      </div>
+
+      <div class="two-col">
+        <div class="card">
+          <div class="card-title">Scans — Last 7 Days <a href="history.html">View all →</a></div>
+          <div class="chart-wrap" id="scan-chart"><div class="spinner"></div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Upcoming Tasks <a href="schedule.html">View all →</a></div>
+          <div id="tasks-list"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <div class="three-col">
+        <div class="card">
+          <div class="card-title">Stock Alerts <a href="inventory.html">Manage →</a></div>
+          <div id="inv-list"><div class="spinner"></div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Task Progress</div>
+          <div class="donut-wrap">
+            <svg width="110" height="110" viewBox="0 0 110 110">
+              <circle cx="55" cy="55" r="40" fill="none" stroke="#d5e8da" stroke-width="12"/>
+              <circle id="donut-done" cx="55" cy="55" r="40" fill="none" stroke="#52b788" stroke-width="12" stroke-dasharray="0 251" stroke-linecap="round" transform="rotate(-90 55 55)" style="transition:stroke-dasharray 0.8s"/>
+              <circle id="donut-over" cx="55" cy="55" r="40" fill="none" stroke="#e24b4a" stroke-width="12" stroke-dasharray="0 251" stroke-linecap="round" transform="rotate(-90 55 55)" style="transition:stroke-dasharray 0.8s"/>
+              <text id="donut-pct" x="55" y="50" text-anchor="middle" font-size="16" font-weight="700" fill="#1a3d2b">--%</text>
+              <text x="55" y="65" text-anchor="middle" font-size="10" fill="#888">tasks done</text>
+            </svg>
+          </div>
+          <div class="donut-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#52b788"></div>Done</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#e24b4a"></div>Overdue</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#d5e8da"></div>Pending</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Common Issues Found <a href="history.html">View all →</a></div>
+          <div id="diseases-list"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <div class="actions-row">
+        <a href="scan.html"      class="btn btn-primary">📷 Scan a Crop</a>
+        <a href="schedule.html"  class="btn btn-outline">📅 Add Task</a>
+        <a href="inventory.html" class="btn btn-outline">📦 Update Stock</a>
+        <a href="profit.html"    class="btn btn-outline">💰 Record Income</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API   = "http://localhost:8000";
+  const token = localStorage.getItem("agro_token");
+  if (!token) window.location.href = "../index.html";
+  const user = JSON.parse(localStorage.getItem("agro_user") || "{}");
+
+  const hour  = new Date().getHours();
+  const greet = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  document.getElementById("greeting").textContent = greet + (user.name ? ", " + user.name.split(" ")[0] : "") + " 🌿";
+  document.getElementById("today-date").textContent = new Date().toLocaleDateString("en-KE",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+  document.getElementById("sb-name").textContent = user.name || "Farmer";
+  document.getElementById("sb-info").textContent = (user.farmScale === "large" ? "Large Scale" : "Small Scale") + " · " + (user.county || "Kenya");
+  if (user.freePeriod) {
+    const b = document.getElementById("sb-badge");
+    b.textContent = "🎁 FREE — " + user.freeDaysLeft + " days left";
+    b.style.display = "inline-block";
+  }
+
+  // ── REFRESH USER DATA FROM BACKEND ──────────────
+  // localStorage may have stale info from before the
+  // free trial was changed to 30 days. This fetches
+  // the latest farmer info and updates the sidebar badge.
+  async function refreshUser() {
+    try {
+      const res = await fetch(API + "/auth/me", {
+        headers: { "Authorization": "Bearer " + token }
+      });
+      if (!res.ok) return;
+      const fresh = await res.json();
+
+      // Save updated info back to localStorage
+      localStorage.setItem("agro_user", JSON.stringify(fresh));
+
+      // Update sidebar badge with correct days
+      const b = document.getElementById("sb-badge");
+      if (fresh.freePeriod) {
+        b.textContent = "🎁 FREE — " + fresh.freeDaysLeft + " days left";
+        b.style.display = "inline-block";
+      } else {
+        b.style.display = "none";
+      }
+    } catch(e) {}
+  }
+  refreshUser();
+
+  async function apiFetch(path) {
+    const res = await fetch(API + path, { headers: { "Authorization": "Bearer " + token } });
+    if (res.status === 401) { localStorage.clear(); window.location.href = "../index.html"; }
+    return res.json();
+  }
+
+  function doLogout() {
+    localStorage.removeItem("agro_token");
+    localStorage.removeItem("agro_user");
+    window.location.href = "../index.html";
+  }
+
+  async function loadStats() {
+    try {
+      const s = await apiFetch("/stats");
+      document.getElementById("stat-scans").textContent = s.scans.total;
+      document.getElementById("stat-inv").textContent = s.inventory.lowStock + s.inventory.outOfStock;
+      if (s.inventory.lowStock > 0 || s.inventory.outOfStock > 0) document.getElementById("stat-inv-card").classList.add("warn");
+      const p = document.getElementById("stat-profit");
+      p.textContent = Number(s.profit.netProfit).toLocaleString("en-KE");
+      if (s.profit.netProfit < 0) p.classList.add("red");
+      document.getElementById("stat-tasks").textContent = s.tasks.overdue;
+      if (s.tasks.overdue > 0) { document.getElementById("stat-task-card").classList.add("alert"); document.getElementById("stat-tasks").classList.add("red"); }
+      const max = Math.max(...s.scans.chart.map(d => d.count), 1);
+      document.getElementById("scan-chart").innerHTML = s.scans.chart.map(d =>
+        `<div class="bar-col"><div class="bar ${d.count>0?'active':''}" style="height:${Math.round((d.count/max)*70)+4}px"></div><div class="bar-lbl">${d.label.split(" ")[0]}</div></div>`
+      ).join("");
+      const circ = 251, total = s.tasks.total;
+      if (total > 0) {
+        const dp = s.tasks.done/total, op = s.tasks.overdue/total;
+        document.getElementById("donut-done").setAttribute("stroke-dasharray", Math.round(dp*circ)+" "+circ);
+        document.getElementById("donut-over").setAttribute("stroke-dasharray", Math.round(op*circ)+" "+circ);
+        document.getElementById("donut-over").setAttribute("transform","rotate("+((-90)+(dp*360))+" 55 55)");
+        document.getElementById("donut-pct").textContent = Math.round(dp*100)+"%";
+      }
+    } catch(e) { console.error(e); }
+  }
+
+  async function loadTasks() {
+    try {
+      const tasks = await apiFetch("/tasks");
+      const el = document.getElementById("tasks-list");
+      const pending = tasks.filter(t => !t.done).slice(0,5);
+      if (!pending.length) { el.innerHTML='<div class="empty"><div class="e-icon">✅</div>No pending tasks!</div>'; return; }
+      el.innerHTML = pending.map(t => {
+        const dc = t.overdue?"dot-red":t.taskType==="spray"?"dot-amber":"dot-green";
+        const bc = t.overdue?"badge-red":"badge-grey";
+        const dt = new Date(t.scheduledDate+"T00:00:00").toLocaleDateString("en-KE",{day:"numeric",month:"short"});
+        return `<div class="task-item"><div class="task-dot ${dc}"></div><div style="flex:1"><div class="task-name">${t.title}</div><div class="task-meta">${t.cropName?t.cropName+' · ':''}${dt}</div></div><span class="badge ${bc}">${t.overdue?"⚠️ Overdue":"Pending"}</span></div>`;
+      }).join("");
+    } catch(e) {}
+  }
+
+  async function loadInventory() {
+    try {
+      const items = await apiFetch("/inventory");
+      const el = document.getElementById("inv-list");
+      const alerts = items.filter(i => i.isLow || i.isOut);
+      if (!alerts.length) { el.innerHTML='<div class="empty"><div class="e-icon">✅</div>All stock levels OK</div>'; return; }
+      el.innerHTML = alerts.slice(0,4).map(i =>
+        `<div class="inv-item"><div class="inv-icon" style="background:${i.isOut?'#fcebeb':'#faeeda'}">${i.isOut?'🚨':'⚠️'}</div><div style="flex:1"><div class="inv-name">${i.name}</div><div class="inv-qty">${i.quantity} ${i.unit} left</div></div><span class="badge ${i.isOut?'badge-red':'badge-amber'}">${i.isOut?'Out':'Low'}</span></div>`
+      ).join("");
+    } catch(e) {}
+  }
+
+  async function loadDiseases() {
+    try {
+      const s = await apiFetch("/stats");
+      const el = document.getElementById("diseases-list");
+      const top = s.scans.topDiseases || [];
+      if (!top.length) {
+        el.innerHTML = '<div class="empty"><div class="e-icon">✅</div>No diseases found yet<br><a href="scan.html" style="color:#52b788">Scan a crop →</a></div>';
+        return;
+      }
+      el.innerHTML = top.map(d => `
+        <div class="crop-item">
+          <div class="crop-icon">⚠️</div>
+          <div>
+            <div class="crop-name">${d.name}</div>
+            <div class="crop-days">Detected ${d.count} time${d.count!==1?'s':''}</div>
+          </div>
+        </div>`).join("");
+    } catch(e) {}
+  }
+
+  function loadWeather() {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(async pos => {
+      try {
+        const {latitude:lat,longitude:lon} = pos.coords;
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=relativehumidity_2m,precipitation&timezone=Africa%2FNairobi&forecast_days=1`);
+        const d = await res.json();
+        const cw = d.current_weather;
+        const h = new Date().getHours();
+        const humidity = d.hourly.relativehumidity_2m[h]||0;
+        const rain = d.hourly.precipitation[h]||0;
+        const icons={0:"☀️",1:"🌤️",2:"⛅",3:"☁️",45:"🌫️",51:"🌦️",61:"🌧️",80:"🌦️",95:"⛈️"};
+        const descs={0:"Clear sky",1:"Mainly clear",2:"Partly cloudy",3:"Overcast",45:"Foggy",51:"Light drizzle",61:"Rain",80:"Rain showers",95:"Thunderstorm"};
+        document.getElementById("w-icon").textContent = icons[cw.weathercode]||"🌤️";
+        document.getElementById("w-temp").textContent = Math.round(cw.temperature)+"°C";
+        document.getElementById("w-desc").textContent = (descs[cw.weathercode]||"Partly cloudy")+" · "+(user.county||"Your location");
+        document.getElementById("w-hum").textContent  = humidity+"%";
+        document.getElementById("w-wind").textContent = Math.round(cw.windspeed);
+        document.getElementById("w-rain").textContent = rain+"mm";
+        const good = humidity < 80 && rain === 0;
+        document.getElementById("w-spray").textContent = good?"✅ Yes":"❌ No";
+        document.getElementById("w-spray").style.color = good?"#52b788":"#f4a261";
+        if (!good) document.getElementById("spray-warn").style.display="block";
+      } catch(e) { document.getElementById("w-desc").textContent="Enable location for weather"; }
+    }, ()=>{ document.getElementById("w-desc").textContent="Allow location to see weather"; });
+  }
+
+  loadStats(); loadTasks(); loadInventory(); loadDiseases(); loadWeather();
+</script>
+<script src="../js/notifications.js"></script>
+</body>
+</html>

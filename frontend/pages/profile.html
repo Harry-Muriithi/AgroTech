@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgroTech — Profile</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f4f1;color:#1a1a1a}
+    .shell{display:flex;min-height:100vh}
+
+    /* SIDEBAR */
+    .sidebar{width:220px;background:#1a3d2b;display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;overflow-y:auto}
+    .sb-logo{padding:20px 16px 14px;border-bottom:1px solid rgba(255,255,255,0.1)}
+    .sb-logo h1{font-size:20px;font-weight:800;color:#fff}
+    .sb-logo h1 span{color:#52b788}
+    .sb-logo p{font-size:11px;color:rgba(255,255,255,0.35);margin-top:2px}
+    .sb-user{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.1)}
+    .sb-user .name{font-size:13px;font-weight:600;color:#fff}
+    .sb-user .info{font-size:11px;color:rgba(255,255,255,0.45);margin-top:2px}
+    .sb-user .badge{display:inline-block;background:#f4a261;color:#7a3c0a;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;margin-top:5px}
+    .sb-nav{flex:1;padding:8px 0}
+    .sb-nav a{display:flex;align-items:center;gap:10px;padding:10px 16px;color:rgba(255,255,255,0.65);text-decoration:none;font-size:13px;font-weight:500;border-left:3px solid transparent;transition:all 0.15s}
+    .sb-nav a:hover{background:rgba(255,255,255,0.07);color:#fff}
+    .sb-nav a.active{background:rgba(82,183,136,0.15);color:#fff;border-left-color:#52b788}
+    .sb-nav a .ic{font-size:17px;width:20px;text-align:center}
+    .sb-bottom{padding:14px 16px;border-top:1px solid rgba(255,255,255,0.1)}
+    .logout-btn{background:none;border:none;color:rgba(255,255,255,0.35);font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px}
+    .logout-btn:hover{color:rgba(255,255,255,0.7)}
+
+    /* MAIN */
+    .main{margin-left:220px;flex:1;display:flex;flex-direction:column}
+    .topbar{background:#fff;border-bottom:1px solid #d5e8da;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+    .topbar h2{font-size:18px;font-weight:700;color:#1a3d2b}
+    .topbar p{font-size:12px;color:#888;margin-top:2px}
+    .body{padding:24px;max-width:760px}
+
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:10px 20px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;border:none;text-decoration:none;transition:all 0.15s}
+    .btn-primary{background:#1a3d2b;color:#fff}
+    .btn-primary:hover{background:#2d6a4f}
+    .btn-primary:disabled{background:#aaa;cursor:not-allowed}
+    .btn-outline{background:transparent;border:1.5px solid #1a3d2b;color:#1a3d2b}
+    .btn-outline:hover{background:#eaf3de}
+    .btn-danger{background:transparent;border:1.5px solid #e24b4a;color:#a32d2d}
+    .btn-danger:hover{background:#fcebeb}
+
+    /* ══════════════════════════
+       UPGRADE BANNER
+       Shown when arriving from subscription page
+    ══════════════════════════ */
+    .upgrade-banner{
+      background:linear-gradient(135deg,#1a3d2b,#2d6a4f);color:#fff;
+      border-radius:14px;padding:20px 24px;margin-bottom:24px;
+      display:none;align-items:center;gap:16px;
+    }
+    .upgrade-banner.show{display:flex}
+    .ub-icon{font-size:36px}
+    .ub-text h4{font-size:16px;font-weight:800;margin-bottom:4px}
+    .ub-text p{font-size:13px;color:rgba(255,255,255,0.7)}
+
+    /* ══════════════════════════
+       PROFILE HEADER CARD
+    ══════════════════════════ */
+    .profile-header{
+      background:#fff;border-radius:16px;border:1px solid #d5e8da;
+      padding:28px;margin-bottom:24px;
+      display:flex;align-items:center;gap:20px;
+    }
+    .avatar{
+      width:72px;height:72px;border-radius:50%;
+      background:linear-gradient(135deg,#52b788,#1a3d2b);
+      display:flex;align-items:center;justify-content:center;
+      font-size:32px;font-weight:900;color:#fff;flex-shrink:0;
+    }
+    .profile-header-info{flex:1}
+    .profile-header-info h3{font-size:22px;font-weight:900;color:#1a3d2b}
+    .profile-header-info p{font-size:13px;color:#888;margin-top:4px}
+    .profile-tags{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+    .ptag{
+      padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;
+    }
+    .ptag.scale-small{background:#e3f2fd;color:#0d47a1}
+    .ptag.scale-large{background:#eaf3de;color:#2e7d32}
+    .ptag.free{background:#fff8e1;color:#e65100}
+
+    /* ══════════════════════════
+       SECTION CARDS
+    ══════════════════════════ */
+    .section-card{
+      background:#fff;border-radius:14px;border:1px solid #d5e8da;
+      padding:24px;margin-bottom:20px;
+    }
+    .section-card h4{
+      font-size:16px;font-weight:800;color:#1a3d2b;margin-bottom:18px;
+      display:flex;align-items:center;gap:8px;
+    }
+
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+    .form-group label{display:block;font-size:13px;font-weight:700;color:#555;margin-bottom:6px}
+    .form-group input,.form-group select{width:100%;padding:11px 14px;border:1.5px solid #d5e8da;border-radius:8px;font-size:14px;color:#1a1a1a;background:#fff}
+    .form-group input:focus,.form-group select:focus{outline:none;border-color:#52b788}
+    .form-group input:disabled{background:#f5f5f5;color:#aaa}
+    .form-hint{font-size:11px;color:#888;margin-top:4px}
+
+    /* Farm scale preview */
+    .scale-preview{
+      background:#eaf3de;border:1px solid #a5d6a7;border-radius:8px;
+      padding:12px 16px;margin-bottom:16px;font-size:13px;color:#1a3d2b;
+      display:none;
+    }
+    .scale-preview.show{display:block}
+    .scale-preview.changed{background:#fff8e1;border-color:#ffe082;color:#e65100}
+
+    /* Password section */
+    .pass-toggle{
+      display:flex;align-items:center;justify-content:space-between;
+      cursor:pointer;padding:4px 0;
+    }
+    .pass-toggle .pt-arrow{transition:transform 0.2s;color:#52b788}
+    .pass-toggle.open .pt-arrow{transform:rotate(180deg)}
+    .pass-fields{max-height:0;overflow:hidden;transition:all 0.25s}
+    .pass-fields.open{max-height:300px;margin-top:14px}
+
+    /* Toggle switches for notifications */
+    .toggle-row{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:14px 0;border-bottom:1px solid #f0f4f1;
+    }
+    .toggle-row:last-child{border-bottom:none}
+    .toggle-info h5{font-size:14px;font-weight:700;color:#1a3d2b}
+    .toggle-info p{font-size:12px;color:#888;margin-top:2px}
+    .switch{position:relative;width:46px;height:26px;flex-shrink:0}
+    .switch input{opacity:0;width:0;height:0}
+    .slider{
+      position:absolute;cursor:pointer;inset:0;
+      background:#d5e8da;border-radius:26px;transition:0.3s;
+    }
+    .slider:before{
+      position:absolute;content:"";height:20px;width:20px;
+      left:3px;bottom:3px;background:#fff;border-radius:50%;transition:0.3s;
+    }
+    input:checked + .slider{background:#52b788}
+    input:checked + .slider:before{transform:translateX(20px)}
+
+    /* Stats grid */
+    .account-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:0}
+    .as-item{background:#f9fcfa;border-radius:10px;padding:14px;text-align:center}
+    .as-value{font-size:22px;font-weight:900;color:#1a3d2b}
+    .as-label{font-size:11px;color:#888;margin-top:3px}
+
+    /* Save bar */
+    .save-bar{
+      position:sticky;bottom:0;background:#fff;
+      border-top:1px solid #d5e8da;padding:14px 24px;
+      display:flex;justify-content:flex-end;gap:10px;
+      margin:0 -24px -24px;border-radius:0 0 14px 14px;
+    }
+
+    /* Toast */
+    .toast{position:fixed;bottom:24px;right:24px;background:#1a3d2b;color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,0.2);z-index:999;display:none;animation:slideIn 0.3s ease}
+    @keyframes slideIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+
+    /* Danger zone */
+    .danger-zone{border:1.5px solid #f09595;background:#fffafa}
+    .danger-zone h4{color:#a32d2d}
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sb-logo"><h1>🌿 Agro<span>Tech</span></h1><p>Smart Farming · Kenya</p></div>
+    <div class="sb-user">
+      <div class="name" id="sb-name">Loading...</div>
+      <div class="info" id="sb-info"></div>
+      <span class="badge" id="sb-badge" style="display:none"></span>
+    </div>
+    <nav class="sb-nav">
+      <a href="dashboard.html"><span class="ic">🏠</span> Dashboard</a>
+      <a href="scan.html"><span class="ic">📷</span> Scan Crop</a>
+      <a href="history.html"><span class="ic">📋</span> Scan History</a>
+      <a href="schedule.html"><span class="ic">📅</span> Farm Schedule</a>
+      <a href="inventory.html"><span class="ic">📦</span> Inventory</a>
+      <a href="profit.html"><span class="ic">💰</span> Profit & Harvest</a>
+      <a href="subscription.html"><span class="ic">⭐</span> Subscription</a>
+      <a href="profile.html" class="active"><span class="ic">👤</span> Profile</a>
+    </nav>
+    <div class="sb-bottom">
+      <button class="logout-btn" onclick="doLogout()">🚪 Log out</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <h2>👤 Profile</h2>
+        <p>Manage your account and farm details</p>
+      </div>
+    </div>
+
+    <div class="body">
+
+      <!-- UPGRADE BANNER (shown via URL parameter from subscription page) -->
+      <div class="upgrade-banner" id="upgrade-banner">
+        <div class="ub-icon">🚜</div>
+        <div class="ub-text">
+          <h4 id="upgrade-title">Switch to Large Scale Plan</h4>
+          <p id="upgrade-sub">Update your farm size below to 5 acres or more — your plan will switch automatically.</p>
+        </div>
+      </div>
+
+      <!-- PROFILE HEADER -->
+      <div class="profile-header">
+        <div class="avatar" id="avatar-initial">F</div>
+        <div class="profile-header-info">
+          <h3 id="header-name">Loading...</h3>
+          <p id="header-phone">—</p>
+          <div class="profile-tags">
+            <span class="ptag" id="tag-scale">—</span>
+            <span class="ptag free" id="tag-free" style="display:none">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACCOUNT OVERVIEW STATS -->
+      <div class="section-card">
+        <h4>📊 Account Overview</h4>
+        <div class="account-stats">
+          <div class="as-item">
+            <div class="as-value" id="stat-scans">—</div>
+            <div class="as-label">Total Scans</div>
+          </div>
+          <div class="as-item">
+            <div class="as-value" id="stat-tasks">—</div>
+            <div class="as-label">Tasks Completed</div>
+          </div>
+          <div class="as-item">
+            <div class="as-value" id="stat-crops">—</div>
+            <div class="as-label">Days Active</div>
+          </div>
+          <div class="as-item">
+            <div class="as-value" id="stat-county">—</div>
+            <div class="as-label">County</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PERSONAL DETAILS -->
+      <div class="section-card">
+        <h4>👤 Personal Details</h4>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Full Name</label>
+            <input type="text" id="p-name" placeholder="Your full name">
+          </div>
+          <div class="form-group">
+            <label>Phone Number</label>
+            <input type="tel" id="p-phone" disabled>
+            <div class="form-hint">Phone number cannot be changed</div>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:14px">
+          <label>Email Address (for password reset)</label>
+          <input type="email" id="p-email" placeholder="you@gmail.com">
+          <div class="form-hint">
+            ⚠️ This email is used for "Forgot Password". 
+            If blank, you cannot reset your password by email.
+          </div>
+        </div>
+        <div class="form-group">
+          <label>County</label>
+          <select id="p-county">
+            <option value="">Select county...</option>
+            <option>Baringo</option><option>Bomet</option><option>Bungoma</option>
+            <option>Busia</option><option>Elgeyo Marakwet</option><option>Embu</option>
+            <option>Garissa</option><option>Homa Bay</option><option>Isiolo</option>
+            <option>Kajiado</option><option>Kakamega</option><option>Kericho</option>
+            <option>Kiambu</option><option>Kilifi</option><option>Kirinyaga</option>
+            <option>Kisii</option><option>Kisumu</option><option>Kitui</option>
+            <option>Kwale</option><option>Laikipia</option><option>Lamu</option>
+            <option>Machakos</option><option>Makueni</option><option>Mandera</option>
+            <option>Marsabit</option><option>Meru</option><option>Migori</option>
+            <option>Mombasa</option><option>Murang'a</option><option>Nairobi</option>
+            <option>Nakuru</option><option>Nandi</option><option>Narok</option>
+            <option>Nyamira</option><option>Nyandarua</option><option>Nyeri</option>
+            <option>Samburu</option><option>Siaya</option><option>Taita Taveta</option>
+            <option>Tana River</option><option>Tharaka Nithi</option><option>Trans Nzoia</option>
+            <option>Turkana</option><option>Uasin Gishu</option><option>Vihiga</option>
+            <option>Wajir</option><option>West Pokot</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- FARM DETAILS -->
+      <div class="section-card">
+        <h4>🌾 Farm Details</h4>
+        <div class="form-group">
+          <label>Farm Size (acres)</label>
+          <input type="number" id="p-farmsize" min="0" step="0.5" placeholder="e.g. 3"
+                 oninput="updateScalePreview()">
+          <div class="form-hint">Under 5 acres = Small Scale · 5+ acres = Large Scale</div>
+        </div>
+
+        <!-- Shows current vs new classification -->
+        <div class="scale-preview" id="scale-preview"></div>
+      </div>
+
+      <!-- SECURITY -->
+      <div class="section-card">
+        <h4>🔒 Security</h4>
+        <div class="pass-toggle" id="pass-toggle" onclick="togglePassSection()">
+          <div>
+            <strong style="font-size:14px;color:#1a3d2b">Change Password</strong>
+            <p style="font-size:12px;color:#888;margin-top:2px">Update your account password</p>
+          </div>
+          <span class="pt-arrow">▾</span>
+        </div>
+        <div class="pass-fields" id="pass-fields">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Current Password</label>
+              <input type="password" id="p-current-pass" placeholder="Enter current password">
+            </div>
+            <div class="form-group">
+              <label>New Password</label>
+              <input type="password" id="p-new-pass" placeholder="Min 6 characters">
+            </div>
+          </div>
+          <button class="btn btn-outline" onclick="changePassword()" id="change-pass-btn">
+            🔒 Update Password
+          </button>
+        </div>
+      </div>
+
+      <!-- NOTIFICATION PREFERENCES -->
+      <div class="section-card">
+        <h4>🔔 Notification Preferences</h4>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <h5>Task Reminders</h5>
+            <p>Get notified about upcoming and overdue farm tasks</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="notif-tasks" checked onchange="saveNotifPrefs()">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <h5>Low Stock Alerts</h5>
+            <p>Get notified when inventory items run low</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="notif-stock" checked onchange="saveNotifPrefs()">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <h5>Weather Alerts</h5>
+            <p>Get notified about spray-day warnings and weather changes</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="notif-weather" checked onchange="saveNotifPrefs()">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- DANGER ZONE -->
+      <div class="section-card danger-zone">
+        <h4>⚠️ Danger Zone</h4>
+        <p style="font-size:13px;color:#888;margin-bottom:14px">
+          Logging out will require you to enter your phone number and password again to sign back in.
+        </p>
+        <button class="btn btn-danger" onclick="doLogout()">🚪 Log Out of AgroTech</button>
+      </div>
+
+      <!-- SAVE BUTTON -->
+      <div style="display:flex;justify-content:flex-end;gap:10px;padding:8px 0 24px">
+        <button class="btn btn-primary" id="save-btn" onclick="saveProfile()">
+          💾 Save Changes
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const API   = "http://localhost:8000";
+  const token = localStorage.getItem("agro_token");
+  if (!token) window.location.href = "../index.html";
+  let user = JSON.parse(localStorage.getItem("agro_user") || "{}");
+
+  function doLogout() {
+    localStorage.removeItem("agro_token");
+    localStorage.removeItem("agro_user");
+    window.location.href = "../index.html";
+  }
+
+  // ── Check for upgrade parameter from subscription page ──
+  const urlParams = new URLSearchParams(window.location.search);
+  const upgradeTo = urlParams.get("upgrade");
+  if (upgradeTo) {
+    const banner = document.getElementById("upgrade-banner");
+    banner.classList.add("show");
+    if (upgradeTo === "large") {
+      document.getElementById("upgrade-title").textContent = "🚜 Switch to Large Scale Plan";
+      document.getElementById("upgrade-sub").textContent   = "Update your farm size below to 5 acres or more — your plan will switch automatically when you save.";
+    } else {
+      document.getElementById("upgrade-title").textContent = "🌱 Switch to Small Scale Plan";
+      document.getElementById("upgrade-sub").textContent   = "Update your farm size below to under 5 acres — your plan will switch automatically when you save.";
+    }
+  }
+
+
+  // ═══════════════════════════════════
+  //  LOAD PROFILE DATA
+  // ═══════════════════════════════════
+  async function loadProfile() {
+    try {
+      const res  = await fetch(API+"/auth/me", {
+        headers: {"Authorization":"Bearer "+token}
+      });
+      const data = await res.json();
+      user = data;
+      localStorage.setItem("agro_user", JSON.stringify(data));
+      renderProfile(data);
+      loadStats();
+    } catch(e) {
+      showToast("❌ Could not load profile");
+    }
+  }
+
+  function renderProfile(data) {
+    // Sidebar
+    document.getElementById("sb-name").textContent = data.name || "Farmer";
+    document.getElementById("sb-info").textContent =
+      (data.farmScale==="large"?"Large Scale":"Small Scale")+" · "+(data.county||"Kenya");
+    if (data.freePeriod) {
+      const b = document.getElementById("sb-badge");
+      b.textContent = "🎁 FREE — "+data.freeDaysLeft+" days left";
+      b.style.display = "inline-block";
+    }
+
+    // Header card
+    document.getElementById("avatar-initial").textContent = (data.name||"F").charAt(0).toUpperCase();
+    document.getElementById("header-name").textContent    = data.name || "Farmer";
+    document.getElementById("header-phone").textContent   = "📱 " + (data.phone || "—");
+
+    const scaleTag = document.getElementById("tag-scale");
+    const isLarge  = data.farmScale === "large";
+    scaleTag.textContent = isLarge ? "🚜 Large Scale" : "🌱 Small Scale";
+    scaleTag.className    = "ptag " + (isLarge ? "scale-large" : "scale-small");
+
+    const freeTag = document.getElementById("tag-free");
+    if (data.freePeriod) {
+      freeTag.textContent = "🎁 Free Trial — "+data.freeDaysLeft+" days left";
+      freeTag.style.display = "inline-block";
+    }
+
+    // Form fields
+    document.getElementById("p-name").value     = data.name || "";
+    document.getElementById("p-phone").value    = data.phone || "";
+    document.getElementById("p-email").value    = data.email || "";
+    document.getElementById("p-county").value   = data.county || "";
+    document.getElementById("p-farmsize").value = data.farmSize || "";
+
+    // Stats
+    document.getElementById("stat-county").textContent = data.county || "—";
+    const daysActive = Math.max(0, Math.floor((Date.now() - new Date(data.registeredAt).getTime()) / 86400000));
+    document.getElementById("stat-crops").textContent = daysActive;
+
+    updateScalePreview();
+  }
+
+
+  // ═══════════════════════════════════
+  //  LOAD ACCOUNT STATS
+  // ═══════════════════════════════════
+  async function loadStats() {
+    try {
+      const res = await fetch(API+"/stats", {
+        headers: {"Authorization":"Bearer "+token}
+      });
+      const s = await res.json();
+      document.getElementById("stat-scans").textContent = s.scans.total;
+      document.getElementById("stat-tasks").textContent = s.tasks.done;
+    } catch(e) {}
+  }
+
+
+  // ═══════════════════════════════════
+  //  SCALE PREVIEW
+  //  Shows whether farm size change will
+  //  affect Small/Large classification
+  // ═══════════════════════════════════
+  function updateScalePreview() {
+    const size    = parseFloat(document.getElementById("p-farmsize").value) || 0;
+    const preview = document.getElementById("scale-preview");
+    const newScale = size >= 5 ? "large" : "small";
+    const currentScale = user.farmScale;
+
+    if (size <= 0) {
+      preview.classList.remove("show");
+      return;
+    }
+
+    preview.classList.add("show");
+
+    if (newScale !== currentScale) {
+      preview.classList.add("changed");
+      preview.innerHTML = newScale === "large"
+        ? `🚜 <strong>${size} acres</strong> will change your plan to <strong>Large Scale</strong> (unlimited scans, $25/month) when saved.`
+        : `🌱 <strong>${size} acres</strong> will change your plan to <strong>Small Scale</strong> (100 scans/day, $10/month) when saved.`;
+    } else {
+      preview.classList.remove("changed");
+      preview.innerHTML = newScale === "large"
+        ? `🚜 <strong>${size} acres</strong> — stays on <strong>Large Scale</strong> plan.`
+        : `🌱 <strong>${size} acres</strong> — stays on <strong>Small Scale</strong> plan.`;
+    }
+  }
+
+
+  // ═══════════════════════════════════
+  //  SAVE PROFILE
+  // ═══════════════════════════════════
+  async function saveProfile() {
+    const name     = document.getElementById("p-name").value.trim();
+    const county   = document.getElementById("p-county").value;
+    const farmSize = parseFloat(document.getElementById("p-farmsize").value) || 0;
+    const email    = document.getElementById("p-email").value.trim();
+    const btn      = document.getElementById("save-btn");
+
+    if (!name)   { showToast("⚠️ Name cannot be empty"); return; }
+    if (!county) { showToast("⚠️ Please select a county"); return; }
+    if (email && !email.includes("@")) { showToast("⚠️ Please enter a valid email address"); return; }
+
+    btn.disabled    = true;
+    btn.textContent = "⏳ Saving...";
+
+    try {
+      const res = await fetch(API+"/auth/profile", {
+        method:  "PUT",
+        headers: {"Content-Type":"application/json","Authorization":"Bearer "+token},
+        body: JSON.stringify({ name, county, farm_size: farmSize, email: email || null })
+      });
+      const data = await res.json();
+
+      user = data.user;
+      localStorage.setItem("agro_user", JSON.stringify(data.user));
+      renderProfile(data.user);
+
+      // Check if scale changed
+      const oldScale = JSON.parse(localStorage.getItem("agro_user")).farmScale;
+      showToast("✅ Profile updated successfully!");
+
+      // Hide upgrade banner if scale now matches request
+      if (upgradeTo && data.user.farmScale === upgradeTo) {
+        document.getElementById("upgrade-banner").classList.remove("show");
+        showToast("✅ Plan switched to "+(upgradeTo==="large"?"Large":"Small")+" Scale!");
+      }
+
+    } catch(e) {
+      showToast("❌ Could not save changes");
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = "💾 Save Changes";
+    }
+  }
+
+
+  // ═══════════════════════════════════
+  //  PASSWORD SECTION TOGGLE
+  // ═══════════════════════════════════
+  function togglePassSection() {
+    document.getElementById("pass-toggle").classList.toggle("open");
+    document.getElementById("pass-fields").classList.toggle("open");
+  }
+
+  async function changePassword() {
+    const current = document.getElementById("p-current-pass").value;
+    const newPass = document.getElementById("p-new-pass").value;
+    const btn     = document.getElementById("change-pass-btn");
+
+    if (!current || !newPass) { showToast("⚠️ Please fill in both password fields"); return; }
+    if (newPass.length < 6)   { showToast("⚠️ New password must be at least 6 characters"); return; }
+
+    btn.disabled    = true;
+    btn.textContent = "⏳ Updating...";
+
+    try {
+      const res  = await fetch(API+"/auth/login", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ phone: user.phone, password: current })
+      });
+      if (!res.ok) {
+        showToast("❌ Current password is incorrect");
+        return;
+      }
+
+      // Note: backend endpoint for password change would go here
+      // For now, show success — full implementation needs /auth/change-password endpoint
+      showToast("✅ Password verification successful! (Full update requires backend endpoint)");
+      document.getElementById("p-current-pass").value = "";
+      document.getElementById("p-new-pass").value     = "";
+
+    } catch(e) {
+      showToast("❌ Could not update password");
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = "🔒 Update Password";
+    }
+  }
+
+
+  // ═══════════════════════════════════
+  //  NOTIFICATION PREFERENCES
+  //  Saved to browser storage for now
+  // ═══════════════════════════════════
+  function saveNotifPrefs() {
+    const prefs = {
+      tasks:   document.getElementById("notif-tasks").checked,
+      stock:   document.getElementById("notif-stock").checked,
+      weather: document.getElementById("notif-weather").checked
+    };
+    localStorage.setItem("notif_prefs", JSON.stringify(prefs));
+    showToast("✅ Notification preferences saved");
+  }
+
+  function loadNotifPrefs() {
+    const saved = JSON.parse(localStorage.getItem("notif_prefs") || "null");
+    if (saved) {
+      document.getElementById("notif-tasks").checked   = saved.tasks;
+      document.getElementById("notif-stock").checked   = saved.stock;
+      document.getElementById("notif-weather").checked = saved.weather;
+    }
+  }
+
+
+  // ═══════════════════════════════════
+  //  TOAST
+  // ═══════════════════════════════════
+  function showToast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent   = msg;
+    t.style.display = "block";
+    setTimeout(()=>{ t.style.display="none"; }, 3500);
+  }
+
+  loadNotifPrefs();
+  loadProfile();
+</script>
+<script src="../js/notifications.js"></script>
+</body>
+</html>

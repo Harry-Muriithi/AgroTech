@@ -1,0 +1,22 @@
+# Python virtual environment - too big to upload (300MB+)
+backend/venv/
+
+# Database - contains real farmer data, keep private
+backend/agrotech.db
+
+# Python cache files - not needed
+backend/__pycache__/
+*.pyc
+*.pyo
+
+# VS Code settings
+.vscode/
+
+# Windows files
+Thumbs.db
+desktop.ini
+# Data folder - large files not needed on GitHub
+data/
+# Scan reports - generated files, not code
+backend/reports/
+git rm -r --cached backend/reports/

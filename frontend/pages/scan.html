@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgroTech — Scan Crop</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f4f1;color:#1a1a1a}
+    .shell{display:flex;min-height:100vh}
+    .sidebar{width:220px;background:#1a3d2b;display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;overflow-y:auto}
+    .sb-logo{padding:20px 16px 14px;border-bottom:1px solid rgba(255,255,255,0.1)}
+    .sb-logo h1{font-size:20px;font-weight:800;color:#fff}
+    .sb-logo h1 span{color:#52b788}
+    .sb-logo p{font-size:11px;color:rgba(255,255,255,0.35);margin-top:2px}
+    .sb-user{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.1)}
+    .sb-user .name{font-size:13px;font-weight:600;color:#fff}
+    .sb-user .info{font-size:11px;color:rgba(255,255,255,0.45);margin-top:2px}
+    .sb-user .badge{display:inline-block;background:#f4a261;color:#7a3c0a;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;margin-top:5px}
+    .sb-nav{flex:1;padding:8px 0}
+    .sb-nav a{display:flex;align-items:center;gap:10px;padding:10px 16px;color:rgba(255,255,255,0.65);text-decoration:none;font-size:13px;font-weight:500;border-left:3px solid transparent;transition:all 0.15s}
+    .sb-nav a:hover{background:rgba(255,255,255,0.07);color:#fff}
+    .sb-nav a.active{background:rgba(82,183,136,0.15);color:#fff;border-left-color:#52b788}
+    .sb-nav a .ic{font-size:17px;width:20px;text-align:center}
+    .sb-bottom{padding:14px 16px;border-top:1px solid rgba(255,255,255,0.1)}
+    .logout-btn{background:none;border:none;color:rgba(255,255,255,0.35);font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px}
+    .logout-btn:hover{color:rgba(255,255,255,0.7)}
+    .main{margin-left:220px;flex:1;display:flex;flex-direction:column}
+    .topbar{background:#fff;border-bottom:1px solid #d5e8da;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+    .topbar h2{font-size:18px;font-weight:700;color:#1a3d2b}
+    .topbar p{font-size:12px;color:#888;margin-top:2px}
+    .body{padding:24px;max-width:700px}
+
+    /* LIMIT BAR */
+    .limit-bar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:18px;background:#eaf3de;border:1px solid #a5d6a7;color:#2e7d32}
+    .limit-bar.warn{background:#fff8e1;border-color:#ffe082;color:#e65100}
+    .limit-bar.danger{background:#fcebeb;border-color:#f09595;color:#a32d2d}
+
+    /* UPLOAD ZONE */
+    .upload-zone{border:2.5px dashed #b2d8c0;border-radius:14px;padding:40px 24px;text-align:center;background:#fff;cursor:pointer;transition:all 0.2s}
+    .upload-zone:hover,.upload-zone.drag-over{border-color:#52b788;background:#f0fff4}
+    .upload-zone .big-icon{font-size:52px;margin-bottom:12px}
+    .upload-zone h3{font-size:18px;font-weight:700;color:#1a3d2b;margin-bottom:6px}
+    .upload-zone p{font-size:13px;color:#888}
+    .or{display:flex;align-items:center;gap:10px;color:#bbb;font-size:12px;margin:16px 0}
+    .or::before,.or::after{content:"";flex:1;height:1px;background:#e0e0e0}
+    .btn-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+    .camera-btn{display:inline-flex;align-items:center;gap:8px;padding:11px 22px;background:#1a3d2b;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:background 0.15s}
+    .camera-btn:hover{background:#2d6a4f}
+    .file-btn{display:inline-flex;align-items:center;gap:8px;padding:11px 22px;background:transparent;border:1.5px solid #1a3d2b;color:#1a3d2b;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.15s}
+    .file-btn:hover{background:#eaf3de}
+
+    /* ══════════════════════════════════════════
+       CAMERA MODAL — live webcam viewer
+       Opens when "Take Photo with Camera" clicked
+    ══════════════════════════════════════════ */
+    .cam-modal{
+      display:none;
+      position:fixed;inset:0;
+      background:rgba(0,0,0,0.85);
+      z-index:999;
+      flex-direction:column;
+      align-items:center;justify-content:center;
+      padding:20px;
+    }
+    .cam-modal.open{display:flex}
+    .cam-box{
+      background:#000;
+      border-radius:14px;
+      overflow:hidden;
+      position:relative;
+      max-width:640px;
+      width:100%;
+    }
+    /* The live video from webcam */
+    #cam-video{
+      width:100%;
+      display:block;
+      border-radius:14px;
+    }
+    /* Green guide overlay — helps farmer frame the leaf */
+    .cam-guide{
+      position:absolute;inset:0;
+      display:flex;align-items:center;justify-content:center;
+      pointer-events:none;
+    }
+    .cam-guide-box{
+      width:65%;
+      aspect-ratio:1;
+      border:2.5px solid rgba(82,183,136,0.8);
+      border-radius:12px;
+      box-shadow:0 0 0 9999px rgba(0,0,0,0.35);
+    }
+    .cam-guide-label{
+      position:absolute;
+      bottom:14px;left:50%;transform:translateX(-50%);
+      background:rgba(0,0,0,0.6);color:#52b788;
+      font-size:12px;font-weight:600;padding:5px 14px;
+      border-radius:20px;white-space:nowrap;
+    }
+    /* Buttons below the camera */
+    .cam-controls{
+      display:flex;gap:12px;margin-top:16px;
+      width:100%;max-width:640px;
+    }
+    .capture-btn{
+      flex:2;padding:14px;background:#52b788;color:#fff;
+      border:none;border-radius:10px;font-size:16px;
+      font-weight:700;cursor:pointer;transition:background 0.15s;
+    }
+    .capture-btn:hover{background:#2d6a4f}
+    .close-cam-btn{
+      flex:1;padding:14px;background:rgba(255,255,255,0.1);
+      color:#fff;border:1.5px solid rgba(255,255,255,0.3);
+      border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;
+    }
+    .close-cam-btn:hover{background:rgba(255,255,255,0.2)}
+    /* Camera error message */
+    .cam-error{
+      color:#f4a261;font-size:13px;text-align:center;
+      margin-top:12px;display:none;max-width:640px;
+      line-height:1.6;
+    }
+
+    /* TIPS BOX */
+    .tips-box{background:#e8f5e9;border:1px solid #a5d6a7;border-radius:10px;padding:14px 16px;margin-top:16px}
+    .tips-box h4{font-size:13px;font-weight:700;color:#1a3d2b;margin-bottom:8px}
+    .tips-box ul{padding-left:18px;font-size:12px;color:#2e7d32;line-height:1.9}
+
+    /* PREVIEW */
+    .preview-section{display:none;margin-top:0}
+    .preview-img{width:100%;max-height:320px;object-fit:cover;border-radius:12px;margin-bottom:16px;border:2px solid #d5e8da}
+    .analyse-btn{width:100%;padding:14px;background:#1a3d2b;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;transition:background 0.15s;display:flex;align-items:center;justify-content:center;gap:10px}
+    .analyse-btn:hover{background:#2d6a4f}
+    .analyse-btn:disabled{background:#aaa;cursor:not-allowed}
+    .retake-btn{width:100%;padding:10px;background:transparent;border:1.5px solid #ccc;color:#666;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;transition:all 0.15s}
+    .retake-btn:hover{border-color:#1a3d2b;color:#1a3d2b}
+
+    /* ANALYSING */
+    .analysing{display:none;background:#fff;border-radius:12px;border:1px solid #d5e8da;padding:40px 24px;text-align:center;margin-top:0}
+    .analysing .ai-icon{font-size:52px;animation:pulse 1.2s ease-in-out infinite}
+    @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+    .analysing h3{font-size:18px;font-weight:700;color:#1a3d2b;margin-top:16px}
+    .analysing p{font-size:13px;color:#888;margin-top:6px}
+    .progress-bar{background:#eaf3de;border-radius:20px;height:8px;margin:20px 0 8px;overflow:hidden}
+    .progress-fill{height:100%;background:linear-gradient(90deg,#52b788,#1a3d2b);border-radius:20px;width:0%;transition:width 0.3s}
+    .progress-label{font-size:12px;color:#888}
+    .analysis-steps{display:flex;flex-direction:column;gap:8px;margin-top:20px;text-align:left}
+    .a-step{display:flex;align-items:center;gap:10px;font-size:13px;color:#aaa;padding:6px 0}
+    .a-step.done{color:#1a3d2b;font-weight:500}
+    .a-step.active{color:#52b788;font-weight:600}
+    .a-step .step-ic{font-size:16px;width:20px;text-align:center}
+
+    /* ERROR */
+    .error-box{background:#fcebeb;border:1px solid #f09595;border-radius:10px;padding:16px 18px;display:none;margin-top:0}
+    .error-box h4{font-size:14px;font-weight:700;color:#a32d2d;margin-bottom:4px}
+    .error-box p{font-size:13px;color:#c62828;line-height:1.5}
+    .error-box ul{padding-left:18px;font-size:13px;color:#c62828;margin-top:6px;line-height:1.8}
+
+    /* RESULT CARD */
+    .result-card{display:none;background:#fff;border-radius:14px;border:2px solid #d5e8da;padding:24px;margin-top:0}
+    .result-card.healthy{border-color:#52b788}
+    .result-card.diseased{border-color:#e24b4a}
+    .result-header{display:flex;align-items:flex-start;gap:16px;padding-bottom:18px;border-bottom:1px solid #f0f4f1;margin-bottom:18px}
+    .result-emoji{font-size:52px}
+    .result-title{font-size:22px;font-weight:800;color:#1a3d2b;line-height:1.2}
+    .result-plant{font-size:14px;color:#666;margin-top:4px}
+    .result-badge{margin-left:auto;padding:5px 14px;border-radius:20px;font-size:13px;font-weight:700;white-space:nowrap;align-self:flex-start}
+    .badge-healthy{background:#eaf3de;color:#1a3d2b}
+    .badge-diseased{background:#fcebeb;color:#a32d2d}
+    .confidence-section{margin-bottom:18px}
+    .conf-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+    .conf-label{font-size:13px;color:#666}
+    .conf-pct{font-size:20px;font-weight:800;color:#1a3d2b}
+    .conf-bar{background:#f0f4f1;border-radius:20px;height:12px;overflow:hidden;margin-bottom:4px}
+    .conf-fill{height:100%;border-radius:20px;transition:width 0.8s ease}
+    .conf-fill.high{background:linear-gradient(90deg,#52b788,#1a3d2b)}
+    .conf-fill.medium{background:linear-gradient(90deg,#f4a261,#e65100)}
+    .conf-fill.low{background:linear-gradient(90deg,#e24b4a,#b71c1c)}
+    .conf-note{font-size:11px;color:#888}
+    .severity-box{background:#fff8e1;border:1px solid #ffe082;border-radius:10px;padding:14px 16px;margin-bottom:18px}
+    .severity-box.critical{background:#fcebeb;border-color:#f09595}
+    .severity-box.none{background:#eaf3de;border-color:#a5d6a7}
+    .sev-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+    .sev-title{font-size:13px;font-weight:700;color:#1a3d2b}
+    .sev-level{font-size:13px;font-weight:700}
+    .sev-bar{display:flex;gap:3px}
+    .sev-dot{flex:1;height:8px;border-radius:4px;background:#e0e0e0}
+    .sev-dot.filled.low{background:#52b788}
+    .sev-dot.filled.medium{background:#f4a261}
+    .sev-dot.filled.high{background:#e24b4a}
+    .sev-text{font-size:12px;color:#666;margin-top:6px;line-height:1.5}
+    .detail-section{margin-bottom:18px}
+    .detail-section h4{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#888;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+    .detail-section p{font-size:14px;color:#333;line-height:1.7}
+    .chem-box{background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:12px 14px;font-size:13px;line-height:1.9;color:#5d4037}
+    .organic-box{background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:12px 14px;font-size:13px;line-height:1.9;color:#2e7d32}
+    .result-actions{display:flex;gap:10px;margin-top:20px;padding-top:18px;border-top:1px solid #f0f4f1;flex-wrap:wrap}
+    .pdf-btn{flex:1;padding:12px;background:#1a3d2b;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;transition:background 0.15s;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none}
+    .pdf-btn:hover{background:#2d6a4f}
+    .pdf-btn.generating{background:#aaa;pointer-events:none}
+    .scan-again-btn{flex:1;padding:12px;background:transparent;border:1.5px solid #1a3d2b;color:#1a3d2b;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.15s}
+    .scan-again-btn:hover{background:#eaf3de}
+
+    /* Hidden canvas — used to capture photo from webcam */
+    #cam-canvas{display:none}
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sb-logo"><h1>🌿 Agro<span>Tech</span></h1><p>Smart Farming · Kenya</p></div>
+    <div class="sb-user">
+      <div class="name" id="sb-name">Loading...</div>
+      <div class="info"  id="sb-info"></div>
+      <span class="badge" id="sb-badge" style="display:none"></span>
+    </div>
+    <nav class="sb-nav">
+      <a href="dashboard.html"><span class="ic">🏠</span> Dashboard</a>
+      <a href="scan.html" class="active"><span class="ic">📷</span> Scan Crop</a>
+      <a href="history.html"><span class="ic">📋</span> Scan History</a>
+      <a href="schedule.html"><span class="ic">📅</span> Farm Schedule</a>
+      <a href="inventory.html"><span class="ic">📦</span> Inventory</a>
+      <a href="profit.html"><span class="ic">💰</span> Profit & Harvest</a>
+      <a href="subscription.html"><span class="ic">⭐</span> Subscription</a>
+      <a href="profile.html"><span class="ic">👤</span> Profile</a>
+    </nav>
+    <div class="sb-bottom">
+      <button class="logout-btn" onclick="doLogout()">🚪 Log out</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <h2>📷 Scan Crop</h2>
+        <p>Use your camera live OR upload a photo — AI identifies the disease instantly</p>
+      </div>
+    </div>
+
+    <div class="body">
+
+      <!-- Scan limit bar -->
+      <div class="limit-bar" id="limit-bar">⏳ Checking scan limit...</div>
+
+      <!-- ═══════════════════════════
+           STEP 1 — UPLOAD / CAMERA
+      ═══════════════════════════ -->
+      <div id="step-upload">
+        <div class="upload-zone" id="upload-zone"
+             onclick="document.getElementById('file-input').click()"
+             ondragover="handleDragOver(event)"
+             ondragleave="handleDragLeave(event)"
+             ondrop="handleDrop(event)">
+
+          <div class="big-icon">🌿</div>
+          <h3>Scan a Crop Leaf</h3>
+          <p>Drag and drop a photo here, or choose an option below</p>
+          <div class="or">or</div>
+
+          <div class="btn-row" onclick="event.stopPropagation()">
+            <!--
+              This button opens the LIVE CAMERA modal.
+              We use getUserMedia() to stream the webcam —
+              this actually opens the camera, not the file browser.
+            -->
+            <button class="camera-btn" onclick="openCamera()">
+              📸 Open Live Camera
+            </button>
+            <!--
+              This button opens the FILE BROWSER
+              for choosing a saved photo from the computer/phone.
+            -->
+            <button class="file-btn" onclick="document.getElementById('file-input').click()">
+              🖼️ Upload from Gallery
+            </button>
+          </div>
+
+          <!-- Hidden file input for gallery upload -->
+          <input type="file" id="file-input" accept="image/*"
+                 style="display:none" onchange="handleFileSelected(this.files[0])">
+        </div>
+
+        <div class="tips-box">
+          <h4>📸 Tips for best AI results</h4>
+          <ul>
+            <li>Hold phone or camera <strong>20–30 cm</strong> from the leaf</li>
+            <li>Take photo in <strong>good natural daylight</strong> — not in shadow</li>
+            <li>Make the <strong>leaf fill most of the frame</strong></li>
+            <li>Keep camera <strong>steady</strong> — blurry photos get rejected</li>
+            <li>If plant is sick, photograph the <strong>most affected leaf</strong></li>
+            <li>Position leaf inside the <strong>green guide box</strong> on the camera screen</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════
+           STEP 2 — PREVIEW
+      ═══════════════════════════ -->
+      <div id="step-preview" class="preview-section">
+        <img id="preview-img" class="preview-img" alt="Your crop photo">
+        <button class="analyse-btn" id="analyse-btn" onclick="doAnalyse()">
+          🔬 Analyse This Leaf
+        </button>
+        <button class="retake-btn" onclick="resetScan()">
+          ↩ Choose a Different Photo
+        </button>
+      </div>
+
+      <!-- ═══════════════════════════
+           STEP 3 — ANALYSING
+      ═══════════════════════════ -->
+      <div id="step-analysing" class="analysing">
+        <div class="ai-icon">🤖</div>
+        <h3>AI is analysing your leaf...</h3>
+        <p>Please wait — this takes about 5–10 seconds</p>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <div class="progress-label" id="progress-label">Starting analysis...</div>
+        <div class="analysis-steps">
+          <div class="a-step" id="astep-1"><span class="step-ic">🖼️</span> Reading your photo</div>
+          <div class="a-step" id="astep-2"><span class="step-ic">🔍</span> Checking if it is a real leaf</div>
+          <div class="a-step" id="astep-3"><span class="step-ic">🧠</span> Running AI disease detection</div>
+          <div class="a-step" id="astep-4"><span class="step-ic">📊</span> Calculating infection percentage</div>
+          <div class="a-step" id="astep-5"><span class="step-ic">💊</span> Looking up treatment recommendations</div>
+          <div class="a-step" id="astep-6"><span class="step-ic">📄</span> Preparing your report</div>
+        </div>
+      </div>
+
+      <!-- ERROR -->
+      <div class="error-box" id="error-box">
+        <h4 id="error-title">Photo rejected</h4>
+        <p id="error-msg"></p>
+        <ul id="error-tips" style="display:none">
+          <li>Make sure the leaf is clearly visible and in focus</li>
+          <li>Take the photo in good natural light</li>
+          <li>Hold the camera closer to the leaf (20–30cm)</li>
+          <li>Make sure the photo contains a plant leaf, not a hand or background</li>
+        </ul>
+        <button onclick="resetScan()"
+          style="margin-top:14px;padding:9px 20px;background:#a32d2d;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">
+          ↩ Try Again
+        </button>
+      </div>
+
+      <!-- ═══════════════════════════
+           STEP 4 — RESULT CARD
+      ═══════════════════════════ -->
+      <div class="result-card" id="result-card">
+        <div class="result-header">
+          <div class="result-emoji" id="res-emoji">🌿</div>
+          <div style="flex:1">
+            <div class="result-title" id="res-disease">—</div>
+            <div class="result-plant" id="res-plant">—</div>
+          </div>
+          <span class="result-badge" id="res-badge">—</span>
+        </div>
+        <div class="confidence-section">
+          <div class="conf-row">
+            <span class="conf-label">🤖 AI Confidence Score</span>
+            <span class="conf-pct" id="res-confidence">--%</span>
+          </div>
+          <div class="conf-bar">
+            <div class="conf-fill" id="res-conf-bar" style="width:0%"></div>
+          </div>
+          <div class="conf-note" id="res-conf-note"></div>
+        </div>
+        <div class="severity-box" id="res-severity-box">
+          <div class="sev-row">
+            <span class="sev-title">🧪 Infection Severity</span>
+            <span class="sev-level" id="res-sev-level">—</span>
+          </div>
+          <div class="sev-bar" id="res-sev-bar">
+            <div class="sev-dot" id="sd1"></div>
+            <div class="sev-dot" id="sd2"></div>
+            <div class="sev-dot" id="sd3"></div>
+            <div class="sev-dot" id="sd4"></div>
+            <div class="sev-dot" id="sd5"></div>
+          </div>
+          <div class="sev-text" id="res-sev-text">—</div>
+        </div>
+        <div class="detail-section" id="res-signs-section">
+          <h4>🔍 Signs to Look For</h4>
+          <p id="res-signs">—</p>
+        </div>
+        <div class="detail-section">
+          <h4>💊 How to Treat</h4>
+          <p id="res-treatment">—</p>
+        </div>
+        <div class="detail-section" id="res-chem-section">
+          <h4>🧪 Chemicals & Kenyan Prices</h4>
+          <div class="chem-box" id="res-chemical">—</div>
+        </div>
+        <div class="detail-section" id="res-organic-section">
+          <h4>🌱 Organic / Home Remedies</h4>
+          <div class="organic-box" id="res-organic">—</div>
+        </div>
+        <div class="detail-section">
+          <h4>🛡️ Prevention for Next Season</h4>
+          <p id="res-prevention">—</p>
+        </div>
+        <div class="result-actions">
+          <button class="pdf-btn" id="pdf-btn" onclick="downloadPDF()">
+            📄 Download PDF Report
+          </button>
+          <button class="scan-again-btn" onclick="resetScan()">
+            📷 Scan Another Leaf
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     LIVE CAMERA MODAL
+     This is the full-screen camera viewer.
+     Opens when farmer clicks "Open Live Camera".
+     Shows a green guide box to frame the leaf.
+     "Capture" button takes the photo.
+═══════════════════════════════════════════════ -->
+<div class="cam-modal" id="cam-modal">
+  <div class="cam-box">
+    <!-- Live video stream from webcam -->
+    <video id="cam-video" autoplay playsinline></video>
+
+    <!-- Green guide overlay — farmer places leaf inside green box -->
+    <div class="cam-guide">
+      <div class="cam-guide-box"></div>
+    </div>
+    <div class="cam-guide-label">Place the leaf inside the green box</div>
+  </div>
+
+  <!-- Capture + Close buttons -->
+  <div class="cam-controls">
+    <button class="capture-btn" onclick="capturePhoto()">
+      📸 Capture Photo
+    </button>
+    <button class="close-cam-btn" onclick="closeCamera()">
+      ✕ Cancel
+    </button>
+  </div>
+
+  <!-- Error shown if camera permission denied -->
+  <div class="cam-error" id="cam-error">
+    ⚠️ Could not access camera.<br>
+    Please click <strong>Allow</strong> when the browser asks for camera permission.<br>
+    Or use "Upload from Gallery" instead.
+  </div>
+</div>
+
+<!-- Hidden canvas — used to grab a frame from the video as an image -->
+<canvas id="cam-canvas"></canvas>
+
+
+<script>
+  const API   = "http://localhost:8000";
+  const token = localStorage.getItem("agro_token");
+  if (!token) window.location.href = "../index.html";
+  const user  = JSON.parse(localStorage.getItem("agro_user") || "{}");
+
+  document.getElementById("sb-name").textContent = user.name || "Farmer";
+  document.getElementById("sb-info").textContent =
+    (user.farmScale==="large"?"Large Scale":"Small Scale") + " · " + (user.county||"Kenya");
+  if (user.freePeriod) {
+    const b = document.getElementById("sb-badge");
+    b.textContent = "🎁 FREE — " + user.freeDaysLeft + " days left";
+    b.style.display = "inline-block";
+  }
+
+  function doLogout() {
+    localStorage.removeItem("agro_token");
+    localStorage.removeItem("agro_user");
+    window.location.href = "../index.html";
+  }
+
+  let selectedFile = null;
+  let pdfFilename  = null;
+  let progressTimer = null;
+  let cameraStream = null;   // holds the webcam stream so we can stop it later
+
+
+  // ═══════════════════════════════════════════
+  //  CAMERA FUNCTIONS
+  // ═══════════════════════════════════════════
+
+  async function openCamera() {
+    /*
+      getUserMedia() = asks browser for permission to use webcam.
+      If allowed, it streams live video into the <video> element.
+      If denied, we show an error message.
+
+      video: { facingMode: "environment" } = prefer back camera on phones.
+      On laptops, this just uses the built-in webcam.
+    */
+    const modal    = document.getElementById("cam-modal");
+    const video    = document.getElementById("cam-video");
+    const errorEl  = document.getElementById("cam-error");
+
+    errorEl.style.display = "none";
+    modal.classList.add("open");
+
+    try {
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: "environment" },  // back camera on phone, webcam on laptop
+          width:  { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      });
+      video.srcObject = cameraStream;
+
+    } catch (err) {
+      // Camera permission denied or not available
+      errorEl.style.display = "block";
+      console.error("Camera error:", err);
+    }
+  }
+
+  function capturePhoto() {
+    /*
+      Takes a snapshot from the live video stream.
+      Draws the current video frame onto a hidden <canvas>,
+      then converts the canvas to a Blob (image file),
+      then passes it to the normal scan flow.
+    */
+    const video  = document.getElementById("cam-video");
+    const canvas = document.getElementById("cam-canvas");
+
+    // Set canvas size to match the video
+    canvas.width  = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    // Draw the current video frame onto the canvas
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Convert canvas to a Blob (acts like a photo file)
+    canvas.toBlob(blob => {
+      if (!blob) {
+        alert("Could not capture photo. Please try again.");
+        return;
+      }
+      // Create a File object from the Blob (same as if user uploaded a file)
+      const file = new File([blob], "camera_capture.jpg", { type: "image/jpeg" });
+
+      // Close the camera modal
+      closeCamera();
+
+      // Pass to the normal file handler
+      handleFileSelected(file);
+
+    }, "image/jpeg", 0.92);  // 0.92 = 92% quality
+  }
+
+  function closeCamera() {
+    // Stop the webcam stream (turns off the camera light on laptop)
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      cameraStream = null;
+    }
+    document.getElementById("cam-modal").classList.remove("open");
+    document.getElementById("cam-video").srcObject = null;
+  }
+
+
+  // ═══════════════════════════════════════════
+  //  SCAN LIMIT CHECK
+  // ═══════════════════════════════════════════
+  async function checkScanLimit() {
+    const bar = document.getElementById("limit-bar");
+    try {
+      if (user.freePeriod) {
+        bar.textContent = "🎁 FREE period — unlimited scans · " + user.freeDaysLeft + " days left";
+        return;
+      }
+      if (user.farmScale === "large") {
+        bar.textContent = "✅ Large Scale farmer — unlimited scans";
+        return;
+      }
+      const scans    = await fetch(API+"/scans",{headers:{"Authorization":"Bearer "+token}}).then(r=>r.json());
+      const today    = new Date().toDateString();
+      const used     = scans.filter(s => new Date(s.date).toDateString()===today).length;
+      const left     = 100 - used;
+      bar.className  = left <= 10 ? "limit-bar danger" : "limit-bar";
+      bar.textContent = "📷 " + used + "/100 scans used today · " + left + " remaining";
+    } catch(e) { bar.textContent = "📷 Ready to scan"; }
+  }
+  checkScanLimit();
+
+
+  // ═══════════════════════════════════════════
+  //  DRAG AND DROP
+  // ═══════════════════════════════════════════
+  function handleDragOver(e) { e.preventDefault(); document.getElementById("upload-zone").classList.add("drag-over"); }
+  function handleDragLeave()  { document.getElementById("upload-zone").classList.remove("drag-over"); }
+  function handleDrop(e) {
+    e.preventDefault();
+    document.getElementById("upload-zone").classList.remove("drag-over");
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileSelected(file);
+  }
+
+
+  // ═══════════════════════════════════════════
+  //  FILE SELECTED — show preview
+  // ═══════════════════════════════════════════
+  function handleFileSelected(file) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      showError("Wrong file type", "Please select a photo (JPG or PNG).", false); return;
+    }
+    if (file.size > 15*1024*1024) {
+      showError("Photo too large", "Please use a photo under 15MB.", false); return;
+    }
+    selectedFile = file;
+    const reader = new FileReader();
+    reader.onload = e => {
+      document.getElementById("preview-img").src = e.target.result;
+      showStep("preview");
+    };
+    reader.readAsDataURL(file);
+  }
+
+
+  // ═══════════════════════════════════════════
+  //  SHOW/HIDE STEPS
+  // ═══════════════════════════════════════════
+  function showStep(step) {
+    document.getElementById("step-upload").style.display    = step==="upload"    ? "block":"none";
+    document.getElementById("step-preview").style.display   = step==="preview"   ? "block":"none";
+    document.getElementById("step-analysing").style.display = step==="analysing" ? "block":"none";
+    document.getElementById("result-card").style.display    = step==="result"    ? "block":"none";
+    document.getElementById("error-box").style.display      = step==="error"     ? "block":"none";
+  }
+
+
+  // ═══════════════════════════════════════════
+  //  PROGRESS ANIMATION
+  // ═══════════════════════════════════════════
+  function startProgressAnimation() {
+    const steps = [
+      {id:"astep-1",pct:10, label:"Reading your photo..."},
+      {id:"astep-2",pct:25, label:"Checking if it is a real leaf..."},
+      {id:"astep-3",pct:55, label:"Running AI disease detection..."},
+      {id:"astep-4",pct:75, label:"Calculating infection percentage..."},
+      {id:"astep-5",pct:88, label:"Looking up treatment recommendations..."},
+      {id:"astep-6",pct:96, label:"Preparing your PDF report..."},
+    ];
+    let i = 0;
+    progressTimer = setInterval(() => {
+      if (i > 0) {
+        document.getElementById(steps[i-1].id).classList.remove("active");
+        document.getElementById(steps[i-1].id).classList.add("done");
+        document.getElementById(steps[i-1].id).querySelector(".step-ic").textContent = "✅";
+      }
+      if (i < steps.length) {
+        document.getElementById(steps[i].id).classList.add("active");
+        document.getElementById("progress-fill").style.width = steps[i].pct+"%";
+        document.getElementById("progress-label").textContent = steps[i].label;
+        i++;
+      }
+    }, 1200);
+  }
+
+  function stopProgressAnimation() {
+    if (progressTimer) clearInterval(progressTimer);
+    document.getElementById("progress-fill").style.width = "100%";
+    document.getElementById("progress-label").textContent = "Analysis complete!";
+  }
+
+
+  // ═══════════════════════════════════════════
+  //  DO ANALYSE — sends photo to backend
+  // ═══════════════════════════════════════════
+  async function doAnalyse() {
+    if (!selectedFile) return;
+    showStep("analysing");
+    for (let i=1;i<=6;i++) {
+      const el = document.getElementById("astep-"+i);
+      el.classList.remove("active","done");
+      el.querySelector(".step-ic").textContent = ["🖼️","🔍","🧠","📊","💊","📄"][i-1];
+    }
+    startProgressAnimation();
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      const res  = await fetch(API+"/predict", {
+        method: "POST",
+        headers: { "Authorization": "Bearer "+token },
+        body: formData
+      });
+      const data = await res.json();
+      stopProgressAnimation();
+      if (!res.ok) { showError("Photo rejected by AI", data.detail||"Could not analyse this photo.", true); return; }
+      showResult(data);
+    } catch(e) {
+      stopProgressAnimation();
+      showError("Connection failed","Make sure the backend server is running in Terminal 1.",false);
+    }
+  }
+
+
+  // ═══════════════════════════════════════════
+  //  SHOW RESULT
+  // ═══════════════════════════════════════════
+  function showResult(data) {
+    const isHealthy = data.status === "healthy";
+    pdfFilename = data.pdf_report;
+
+    const card = document.getElementById("result-card");
+    card.className = "result-card " + (isHealthy ? "healthy" : "diseased");
+
+    document.getElementById("res-emoji").textContent   = isHealthy ? "✅" : "⚠️";
+    document.getElementById("res-disease").textContent = data.disease.replace(/_/g," ");
+    document.getElementById("res-plant").textContent   = "Plant: " + data.plant.replace(/_/g," ");
+
+    const badge = document.getElementById("res-badge");
+    badge.textContent = isHealthy ? "✅ HEALTHY" : "🔴 DISEASED";
+    badge.className   = "result-badge " + (isHealthy ? "badge-healthy" : "badge-diseased");
+
+    const conf = data.confidence;
+    document.getElementById("res-confidence").textContent = conf+"%";
+    const bar = document.getElementById("res-conf-bar");
+    bar.style.width = conf+"%";
+    bar.className   = "conf-fill " + (conf>=85?"high":conf>=70?"medium":"low");
+    document.getElementById("res-conf-note").textContent =
+      conf>=90 ? "✅ Very high confidence — result is very reliable" :
+      conf>=80 ? "✅ High confidence — result is reliable" :
+      conf>=70 ? "⚠️ Moderate confidence — consider a second scan with clearer photo" :
+                 "⚠️ Low confidence — retake with a clearer, well-lit photo";
+
+    const sevBox = document.getElementById("res-severity-box");
+    if (isHealthy) {
+      sevBox.style.display = "none";
+    } else {
+      sevBox.style.display = "block";
+      const sev = (data.severity||"").toLowerCase();
+      let level=2, levelText="Moderate", levelColor="medium";
+      if (sev.includes("critical")||sev.includes("destroys")) { level=5; levelText="CRITICAL"; levelColor="high"; sevBox.className="severity-box critical"; }
+      else if (sev.includes("high"))    { level=4; levelText="High";     levelColor="high";   sevBox.className="severity-box critical"; }
+      else if (sev.includes("moderate")){ level=3; levelText="Moderate"; levelColor="medium"; sevBox.className="severity-box"; }
+      else if (sev.includes("low"))     { level=2; levelText="Low";      levelColor="low";    sevBox.className="severity-box"; }
+      document.getElementById("res-sev-level").textContent = levelText;
+      document.getElementById("res-sev-text").textContent  = data.severity;
+      for (let i=1;i<=5;i++) {
+        document.getElementById("sd"+i).className = "sev-dot"+(i<=level?" filled "+levelColor:"");
+      }
+    }
+
+    document.getElementById("res-signs-section").style.display = isHealthy?"none":"block";
+    if (!isHealthy) document.getElementById("res-signs").textContent = data.signs||"";
+    document.getElementById("res-treatment").textContent = data.treatment;
+
+    document.getElementById("res-chem-section").style.display = isHealthy?"none":"block";
+    if (!isHealthy) document.getElementById("res-chemical").innerHTML = data.chemical.replace(/\n/g,"<br>");
+
+    const orgSection = document.getElementById("res-organic-section");
+    orgSection.style.display = (!isHealthy && data.organic) ? "block" : "none";
+    if (!isHealthy && data.organic) document.getElementById("res-organic").textContent = data.organic;
+
+    document.getElementById("res-prevention").textContent = data.prevention;
+
+    showStep("result");
+    document.getElementById("result-card").scrollIntoView({behavior:"smooth",block:"start"});
+    checkScanLimit();
+  }
+
+
+  // ═══════════════════════════════════════════
+  //  DOWNLOAD PDF
+  // ═══════════════════════════════════════════
+  function downloadPDF() {
+    if (!pdfFilename) { alert("Please scan a leaf first."); return; }
+    const btn = document.getElementById("pdf-btn");
+    btn.classList.add("generating");
+    btn.textContent = "⏳ Downloading...";
+    window.open(API+"/download/"+pdfFilename, "_blank");
+    setTimeout(() => { btn.classList.remove("generating"); btn.innerHTML="📄 Download PDF Report"; }, 2000);
+  }
+
+
+  // ═══════════════════════════════════════════
+  //  SHOW ERROR
+  // ═══════════════════════════════════════════
+  function showError(title, message, showTips) {
+    document.getElementById("error-title").textContent = "❌ "+title;
+    document.getElementById("error-msg").textContent   = message;
+    document.getElementById("error-tips").style.display = showTips?"block":"none";
+    showStep("error");
+  }
+
+
+  // ═══════════════════════════════════════════
+  //  RESET
+  // ═══════════════════════════════════════════
+  function resetScan() {
+    selectedFile = null;
+    pdfFilename  = null;
+    document.getElementById("file-input").value = "";
+    document.getElementById("preview-img").src  = "";
+    showStep("upload");
+    window.scrollTo({top:0,behavior:"smooth"});
+  }
+
+  // Close camera if user presses Escape key
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") closeCamera();
+  });
+</script>
+<script src="../js/notifications.js"></script>
+</body>
+</html>

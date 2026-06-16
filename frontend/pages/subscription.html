@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgroTech — Subscription</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f4f1;color:#1a1a1a}
+    .shell{display:flex;min-height:100vh}
+
+    /* SIDEBAR */
+    .sidebar{width:220px;background:#1a3d2b;display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;overflow-y:auto}
+    .sb-logo{padding:20px 16px 14px;border-bottom:1px solid rgba(255,255,255,0.1)}
+    .sb-logo h1{font-size:20px;font-weight:800;color:#fff}
+    .sb-logo h1 span{color:#52b788}
+    .sb-logo p{font-size:11px;color:rgba(255,255,255,0.35);margin-top:2px}
+    .sb-user{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.1)}
+    .sb-user .name{font-size:13px;font-weight:600;color:#fff}
+    .sb-user .info{font-size:11px;color:rgba(255,255,255,0.45);margin-top:2px}
+    .sb-user .badge{display:inline-block;background:#f4a261;color:#7a3c0a;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;margin-top:5px}
+    .sb-nav{flex:1;padding:8px 0}
+    .sb-nav a{display:flex;align-items:center;gap:10px;padding:10px 16px;color:rgba(255,255,255,0.65);text-decoration:none;font-size:13px;font-weight:500;border-left:3px solid transparent;transition:all 0.15s}
+    .sb-nav a:hover{background:rgba(255,255,255,0.07);color:#fff}
+    .sb-nav a.active{background:rgba(82,183,136,0.15);color:#fff;border-left-color:#52b788}
+    .sb-nav a .ic{font-size:17px;width:20px;text-align:center}
+    .sb-bottom{padding:14px 16px;border-top:1px solid rgba(255,255,255,0.1)}
+    .logout-btn{background:none;border:none;color:rgba(255,255,255,0.35);font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px}
+    .logout-btn:hover{color:rgba(255,255,255,0.7)}
+
+    /* MAIN */
+    .main{margin-left:220px;flex:1;display:flex;flex-direction:column}
+    .topbar{background:#fff;border-bottom:1px solid #d5e8da;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+    .topbar h2{font-size:18px;font-weight:700;color:#1a3d2b}
+    .topbar p{font-size:12px;color:#888;margin-top:2px}
+    .body{padding:24px;max-width:900px}
+
+    /* ══════════════════════════
+       CURRENT STATUS CARD
+    ══════════════════════════ */
+    .status-card{
+      border-radius:16px;padding:28px;margin-bottom:24px;color:#fff;
+      background:linear-gradient(135deg,#1a3d2b,#2d6a4f);
+    }
+    .status-card.expired{background:linear-gradient(135deg,#a32d2d,#e24b4a)}
+    .status-card.warning{background:linear-gradient(135deg,#e65100,#f4a261)}
+
+    .sc-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px}
+    .sc-icon{font-size:48px}
+    .sc-title{font-size:22px;font-weight:900;margin-top:8px}
+    .sc-sub{font-size:13px;color:rgba(255,255,255,0.7);margin-top:4px}
+    .sc-badge{
+      background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);
+      border-radius:20px;padding:6px 16px;font-size:12px;font-weight:700;
+    }
+
+    /* Countdown */
+    .countdown-row{display:flex;gap:16px;margin-top:20px}
+    .countdown-box{
+      flex:1;background:rgba(255,255,255,0.1);border-radius:12px;
+      padding:16px;text-align:center;
+    }
+    .cb-number{font-size:36px;font-weight:900;line-height:1}
+    .cb-label{font-size:12px;color:rgba(255,255,255,0.6);margin-top:4px}
+
+    /* Progress bar showing days used */
+    .days-progress{margin-top:20px}
+    .dp-label{display:flex;justify-content:space-between;font-size:12px;color:rgba(255,255,255,0.7);margin-bottom:6px}
+    .dp-bar{background:rgba(255,255,255,0.15);border-radius:10px;height:10px;overflow:hidden}
+    .dp-fill{height:100%;border-radius:10px;background:#fff;transition:width 0.6s}
+
+    /* ══════════════════════════
+       FARM SCALE INFO
+    ══════════════════════════ */
+    .scale-card{
+      background:#fff;border-radius:14px;border:1px solid #d5e8da;
+      padding:20px;margin-bottom:24px;
+      display:flex;align-items:center;gap:16px;
+    }
+    .scale-icon{font-size:40px}
+    .scale-info{flex:1}
+    .scale-info h4{font-size:15px;font-weight:800;color:#1a3d2b}
+    .scale-info p{font-size:13px;color:#888;margin-top:3px}
+    .scale-badge{
+      padding:6px 16px;border-radius:20px;font-size:13px;font-weight:700;
+    }
+    .scale-badge.small{background:#e3f2fd;color:#0d47a1}
+    .scale-badge.large{background:#eaf3de;color:#2e7d32}
+
+    /* ══════════════════════════
+       PLANS COMPARISON
+    ══════════════════════════ */
+    .plans-header{margin-bottom:20px;text-align:center}
+    .plans-header h3{font-size:22px;font-weight:900;color:#1a3d2b;margin-bottom:6px}
+    .plans-header p{font-size:14px;color:#888}
+
+    /* Billing period toggle */
+    .billing-toggle{
+      display:flex;align-items:center;justify-content:center;
+      gap:0;margin-bottom:24px;
+    }
+    .billing-toggle-inner{
+      display:flex;background:#fff;border:1.5px solid #d5e8da;
+      border-radius:30px;padding:4px;gap:4px;
+    }
+    .bt-btn{
+      padding:9px 24px;border-radius:24px;font-size:14px;font-weight:700;
+      cursor:pointer;border:none;background:transparent;color:#888;
+      transition:all 0.2s;display:flex;align-items:center;gap:8px;
+    }
+    .bt-btn.active{background:#1a3d2b;color:#fff}
+    .bt-save{
+      background:#f4a261;color:#7a3c0a;font-size:10px;font-weight:800;
+      padding:2px 8px;border-radius:10px;
+    }
+    .bt-btn.active .bt-save{background:rgba(255,255,255,0.25);color:#fff}
+
+    .plans-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:24px}
+    .plan-card{
+      background:#fff;border-radius:16px;border:2px solid #d5e8da;
+      padding:24px;position:relative;transition:all 0.2s;
+    }
+    .plan-card.current{border-color:#52b788;background:#f0fff4}
+    .plan-card.recommended{border-color:#1a3d2b}
+
+    .plan-tag{
+      position:absolute;top:-12px;left:24px;
+      background:#1a3d2b;color:#fff;font-size:11px;font-weight:700;
+      padding:5px 14px;border-radius:20px;
+    }
+    .plan-tag.current{background:#52b788}
+
+    .plan-icon{font-size:40px;margin-bottom:10px}
+    .plan-name{font-size:18px;font-weight:900;color:#1a3d2b;margin-bottom:4px}
+    .plan-desc{font-size:13px;color:#888;margin-bottom:16px}
+
+    .plan-price{font-size:32px;font-weight:900;color:#1a3d2b}
+    .plan-price .pp-period{font-size:14px;font-weight:600;color:#888}
+    .plan-price.free{color:#52b788}
+
+    .plan-features{margin:18px 0;display:flex;flex-direction:column;gap:10px}
+    .pf-item{display:flex;align-items:flex-start;gap:10px;font-size:13px;color:#444}
+    .pf-icon{flex-shrink:0;margin-top:1px}
+    .pf-icon.yes{color:#52b788}
+    .pf-icon.no{color:#ccc}
+
+    .plan-btn{
+      width:100%;padding:13px;border-radius:10px;
+      font-size:14px;font-weight:800;cursor:pointer;
+      border:none;transition:all 0.15s;text-align:center;
+      text-decoration:none;display:block;
+    }
+    .plan-btn.primary{background:#1a3d2b;color:#fff}
+    .plan-btn.primary:hover{background:#2d6a4f}
+    .plan-btn.disabled{background:#f0f0f0;color:#aaa;cursor:not-allowed}
+
+    /* ══════════════════════════
+       PAYMENT INFO BOX
+    ══════════════════════════ */
+    .payment-box{
+      background:#fff8e1;border:1.5px solid #ffe082;
+      border-radius:14px;padding:20px;margin-bottom:24px;
+    }
+    .payment-box h4{font-size:15px;font-weight:800;color:#e65100;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+    .payment-box p{font-size:13px;color:#5d4037;line-height:1.7}
+
+    /* ══════════════════════════
+       FAQ SECTION
+    ══════════════════════════ */
+    .faq-card{background:#fff;border-radius:14px;border:1px solid #d5e8da;overflow:hidden}
+    .faq-item{border-bottom:1px solid #f0f4f1}
+    .faq-item:last-child{border-bottom:none}
+    .faq-q{
+      padding:16px 20px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;
+      font-size:14px;font-weight:700;color:#1a3d2b;transition:background 0.15s;
+    }
+    .faq-q:hover{background:#fafcfa}
+    .faq-q .faq-arrow{transition:transform 0.2s;color:#52b788;font-size:18px}
+    .faq-item.open .faq-arrow{transform:rotate(180deg)}
+    .faq-a{padding:0 20px;font-size:13px;color:#666;line-height:1.7;max-height:0;overflow:hidden;transition:all 0.25s}
+    .faq-item.open .faq-a{padding:0 20px 16px;max-height:300px}
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sb-logo"><h1>🌿 Agro<span>Tech</span></h1><p>Smart Farming · Kenya</p></div>
+    <div class="sb-user">
+      <div class="name" id="sb-name">Loading...</div>
+      <div class="info" id="sb-info"></div>
+      <span class="badge" id="sb-badge" style="display:none"></span>
+    </div>
+    <nav class="sb-nav">
+      <a href="dashboard.html"><span class="ic">🏠</span> Dashboard</a>
+      <a href="scan.html"><span class="ic">📷</span> Scan Crop</a>
+      <a href="history.html"><span class="ic">📋</span> Scan History</a>
+      <a href="schedule.html"><span class="ic">📅</span> Farm Schedule</a>
+      <a href="inventory.html"><span class="ic">📦</span> Inventory</a>
+      <a href="profit.html"><span class="ic">💰</span> Profit & Harvest</a>
+      <a href="subscription.html" class="active"><span class="ic">⭐</span> Subscription</a>
+      <a href="profile.html"><span class="ic">👤</span> Profile</a>
+    </nav>
+    <div class="sb-bottom">
+      <button class="logout-btn" onclick="doLogout()">🚪 Log out</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <h2>⭐ Subscription</h2>
+        <p>Your plan details and upgrade options</p>
+      </div>
+    </div>
+
+    <div class="body">
+
+      <!-- ══════════════════════════
+           CURRENT STATUS CARD
+      ══════════════════════════ -->
+      <div class="status-card" id="status-card">
+        <div class="sc-top">
+          <div>
+            <div class="sc-icon" id="sc-icon">🎁</div>
+            <div class="sc-title" id="sc-title">Free Trial Active</div>
+            <div class="sc-sub" id="sc-sub">Loading your subscription status...</div>
+          </div>
+          <div class="sc-badge" id="sc-badge">—</div>
+        </div>
+
+        <div class="countdown-row" id="countdown-row">
+          <div class="countdown-box">
+            <div class="cb-number" id="days-left">—</div>
+            <div class="cb-label">Days Remaining</div>
+          </div>
+          <div class="countdown-box">
+            <div class="cb-number" id="days-used">—</div>
+            <div class="cb-label">Days Used</div>
+          </div>
+          <div class="countdown-box">
+            <div class="cb-number" id="end-date" style="font-size:16px;padding-top:8px">—</div>
+            <div class="cb-label">Trial Ends</div>
+          </div>
+        </div>
+
+        <div class="days-progress">
+          <div class="dp-label">
+            <span>Free trial progress</span>
+            <span id="dp-percent">0%</span>
+          </div>
+          <div class="dp-bar">
+            <div class="dp-fill" id="dp-fill" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════
+           FARM SCALE INFO
+      ══════════════════════════ -->
+      <div class="scale-card">
+        <div class="scale-icon" id="scale-icon">🌱</div>
+        <div class="scale-info">
+          <h4>Your Farm Classification</h4>
+          <p id="scale-desc">Based on your farm size, you are classified as:</p>
+        </div>
+        <span class="scale-badge" id="scale-badge">—</span>
+      </div>
+
+      <!-- ══════════════════════════
+           PLANS COMPARISON
+      ══════════════════════════ -->
+      <div class="plans-header">
+        <h3>Choose Your Plan</h3>
+        <p>After your 30-day free trial ends, continue with a plan that fits your farm</p>
+      </div>
+
+      <!-- Monthly / Annual toggle -->
+      <div class="billing-toggle">
+        <div class="billing-toggle-inner">
+          <button class="bt-btn active" id="bt-monthly" onclick="setBilling('monthly')">
+            Monthly
+          </button>
+          <button class="bt-btn" id="bt-annual" onclick="setBilling('annual')">
+            Annual <span class="bt-save">Save ~17%</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="plans-grid">
+
+        <!-- SMALL SCALE PLAN -->
+        <div class="plan-card" id="plan-small">
+          <span class="plan-tag" id="tag-small" style="display:none">Your Plan</span>
+          <div class="plan-icon">🌱</div>
+          <div class="plan-name">Small Scale Farmer</div>
+          <div class="plan-desc">For farms under 5 acres</div>
+
+          <div class="plan-price" id="price-small">
+            $10 <span class="pp-period">/ month</span>
+          </div>
+          <div style="font-size:12px;color:#aaa;margin-top:-8px" id="price-small-kes">≈ KES 1,300 / month</div>
+
+          <div class="plan-features">
+            <div class="pf-item"><span class="pf-icon yes">✅</span> 100 AI crop scans per day</div>
+            <div class="pf-item"><span class="pf-icon yes">✅</span> Disease detection & treatment advice</div>
+            <div class="pf-item"><span class="pf-icon yes">✅</span> PDF scan reports</div>
+            <div class="pf-item"><span class="pf-icon yes">✅</span> Farm schedule & task reminders</div>
+            <div class="pf-item"><span class="pf-icon yes">✅</span> Inventory tracking</div>
+            <div class="pf-item"><span class="pf-icon yes">✅</span> Profit & harvest tracking</div>
+            <div class="pf-item"><span class="pf-icon yes">✅</span> Weather & spray advisor</div>
+            <div class="pf-item"><span class="pf-icon no">⬜</span> Unlimited scans</div>
+          </div>
+
+          <button class="plan-btn primary" id="btn-small" onclick="selectPlan('small')">
+            Continue with Small Scale
+          </button>
+        </div>
+
+        <!-- LARGE SCALE PLAN -->
+        <div class="plan-card recommended" id="plan-large">
+          <span class="plan-tag" id="tag-large" style="display:none">Your Plan</span>
+          <div class="plan-icon">🚜</div>
+          <div class="plan-name">Large Scale Farmer</div>
+          <div class="plan-desc">For farms 5 acres and above</div>
+
+          <div class="plan-price" id="price-large">
+            $25 <span class="pp-period">/ month</span>
+          </div>
+          <div style="font-size:12px;color:#aaa;margin-top:-8px" id="price-large-kes">≈ KES 3,250 / month</div>
+
+          <div class="plan-features">
+            <div class="pf-item"><span class="pf-icon yes">✅</span> <strong>Unlimited</strong> AI crop scans</div>
+            <div class="pf-item"><span class="pf-icon yes">✅</span> Disease detection & treatment advice</div>
+            <div class="pf-item"><span class="pf-icon yes">✅</span> PDF scan reports</div>
+            <div class="pf-item"><span class="pf-icon yes">✅</span> Farm schedule & task reminders</div>
+            <div class="pf-item"><span class="pf-icon yes">✅</span> Inventory tracking</div>
+            <div class="pf-item"><span class="pf-icon yes">✅</span> Profit & harvest tracking</div>
+            <div class="pf-item"><span class="pf-icon yes">✅</span> Weather & spray advisor</div>
+            <div class="pf-item"><span class="pf-icon yes">✅</span> Priority support</div>
+          </div>
+
+          <button class="plan-btn primary" id="btn-large" onclick="selectPlan('large')">
+            Continue with Large Scale
+          </button>
+        </div>
+
+      </div>
+
+      <!-- ══════════════════════════
+           PAYMENT INFO
+      ══════════════════════════ -->
+      <div class="payment-box">
+        <h4>💳 How to Pay</h4>
+        <p>
+          Payment via M-Pesa is coming soon. When your free trial ends, you will receive
+          instructions on how to pay via M-Pesa Paybill to continue using AgroTech.
+          Your data, scan history, and farm records will be kept safe — nothing is deleted
+          when your trial ends. You simply won't be able to do new scans until payment is made.
+        </p>
+      </div>
+
+      <!-- ══════════════════════════
+           FAQ
+      ══════════════════════════ -->
+      <div class="plans-header">
+        <h3 style="font-size:18px">Frequently Asked Questions</h3>
+      </div>
+      <div class="faq-card">
+        <div class="faq-item" onclick="toggleFaq(this)">
+          <div class="faq-q">What happens when my free trial ends? <span class="faq-arrow">▾</span></div>
+          <div class="faq-a">Your account and all your data (scans, schedule, inventory, profit records) stay safe. You will need to subscribe to a plan to continue scanning crops and using AI features.</div>
+        </div>
+        <div class="faq-item" onclick="toggleFaq(this)">
+          <div class="faq-q">How is Small Scale vs Large Scale decided? <span class="faq-arrow">▾</span></div>
+          <div class="faq-a">It's based on the farm size you entered when registering. Under 5 acres = Small Scale. 5 acres or more = Large Scale. You can update your farm size in your Profile.</div>
+        </div>
+        <div class="faq-item" onclick="toggleFaq(this)">
+          <div class="faq-q">Can I switch plans later? <span class="faq-arrow">▾</span></div>
+          <div class="faq-a">Yes. If your farm size changes, update it in your Profile page and your plan classification will update automatically.</div>
+        </div>
+        <div class="faq-item" onclick="toggleFaq(this)">
+          <div class="faq-q">What payment methods will be accepted? <span class="faq-arrow">▾</span></div>
+          <div class="faq-a">M-Pesa Paybill will be the primary payment method, designed for Kenyan farmers. More details will be shared before your trial ends.</div>
+        </div>
+        <div class="faq-item" onclick="toggleFaq(this)">
+          <div class="faq-q">What counts as a "scan"? <span class="faq-arrow">▾</span></div>
+          <div class="faq-a">Each time you upload or take a photo of a crop leaf and the AI analyses it, that counts as one scan. Small Scale farmers get 100 scans per day; Large Scale farmers get unlimited scans.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  const API   = "http://localhost:8000";
+  const token = localStorage.getItem("agro_token");
+  if (!token) window.location.href = "../index.html";
+  const user = JSON.parse(localStorage.getItem("agro_user") || "{}");
+
+  document.getElementById("sb-name").textContent = user.name || "Farmer";
+  document.getElementById("sb-info").textContent =
+    (user.farmScale==="large"?"Large Scale":"Small Scale")+" · "+(user.county||"Kenya");
+  if (user.freePeriod) {
+    const b = document.getElementById("sb-badge");
+    b.textContent = "🎁 FREE — "+user.freeDaysLeft+" days left";
+    b.style.display = "inline-block";
+  }
+  function doLogout() {
+    localStorage.removeItem("agro_token");
+    localStorage.removeItem("agro_user");
+    window.location.href = "../index.html";
+  }
+
+
+  // ═══════════════════════════════════
+  //  LOAD SUBSCRIPTION STATUS
+  // ═══════════════════════════════════
+  async function loadStatus() {
+    try {
+      const res  = await fetch(API+"/auth/me", {
+        headers: {"Authorization":"Bearer "+token}
+      });
+      const data = await res.json();
+      renderStatus(data);
+      renderScale(data);
+      renderPlans(data);
+    } catch(e) {
+      console.error(e);
+    }
+  }
+
+
+  // ═══════════════════════════════════
+  //  RENDER STATUS CARD
+  // ═══════════════════════════════════
+  function renderStatus(data) {
+    const card       = document.getElementById("status-card");
+    const daysLeft   = data.freeDaysLeft;
+    const daysUsed   = 30 - daysLeft;
+    const pct        = Math.round((daysUsed/30)*100);
+    const endDate    = new Date(data.freePeriodEndsAt);
+
+    document.getElementById("days-left").textContent = daysLeft;
+    document.getElementById("days-used").textContent = daysUsed;
+    document.getElementById("end-date").textContent  = endDate.toLocaleDateString("en-KE",{day:"numeric",month:"short",year:"numeric"});
+    document.getElementById("dp-percent").textContent = pct+"%";
+    document.getElementById("dp-fill").style.width    = pct+"%";
+
+    if (data.freePeriod) {
+      if (daysLeft <= 5) {
+        // Warning state - trial ending soon
+        card.className = "status-card warning";
+        document.getElementById("sc-icon").textContent  = "⏰";
+        document.getElementById("sc-title").textContent = "Free Trial Ending Soon!";
+        document.getElementById("sc-sub").textContent   = "Your free trial ends in "+daysLeft+" day"+(daysLeft!==1?"s":"")+". Choose a plan below to continue uninterrupted.";
+        document.getElementById("sc-badge").textContent = "⚠️ "+daysLeft+" DAYS LEFT";
+      } else {
+        // Normal active trial
+        card.className = "status-card";
+        document.getElementById("sc-icon").textContent  = "🎁";
+        document.getElementById("sc-title").textContent = "Free Trial Active";
+        document.getElementById("sc-sub").textContent   = "Enjoy full access to all AgroTech features — completely free for your first 30 days.";
+        document.getElementById("sc-badge").textContent = "✅ ACTIVE";
+      }
+    } else {
+      // Trial expired
+      card.className = "status-card expired";
+      document.getElementById("sc-icon").textContent  = "🔒";
+      document.getElementById("sc-title").textContent = "Free Trial Expired";
+      document.getElementById("sc-sub").textContent   = "Your 30-day free trial has ended. Subscribe to a plan below to continue scanning crops and using AI features.";
+      document.getElementById("sc-badge").textContent = "🔒 EXPIRED";
+      document.getElementById("countdown-row").style.display = "none";
+      document.getElementById("days-left").textContent = "0";
+    }
+  }
+
+
+  // ═══════════════════════════════════
+  //  RENDER FARM SCALE
+  // ═══════════════════════════════════
+  function renderScale(data) {
+    const isLarge = data.farmScale === "large";
+    document.getElementById("scale-icon").textContent = isLarge ? "🚜" : "🌱";
+    document.getElementById("scale-desc").innerHTML =
+      `Your farm is <strong>${data.farmSize || 0} acres</strong> — ` +
+      (isLarge
+        ? "classified as <strong>Large Scale</strong> (5+ acres)"
+        : "classified as <strong>Small Scale</strong> (under 5 acres)");
+
+    const badge = document.getElementById("scale-badge");
+    badge.textContent = isLarge ? "🚜 Large Scale" : "🌱 Small Scale";
+    badge.className   = "scale-badge " + (isLarge ? "large" : "small");
+  }
+
+
+  // ═══════════════════════════════════
+  //  RENDER PLANS — highlight current plan
+  // ═══════════════════════════════════
+  function renderPlans(data) {
+    const isLarge = data.farmScale === "large";
+
+    if (isLarge) {
+      document.getElementById("plan-large").classList.add("current");
+      document.getElementById("tag-large").style.display = "block";
+      document.getElementById("tag-large").textContent   = "Your Plan";
+      document.getElementById("tag-large").className     = "plan-tag current";
+
+      document.getElementById("btn-large").textContent = data.freePeriod ? "✅ Your Current Plan (Free Trial)" : "✅ Your Current Plan";
+      document.getElementById("btn-small").textContent = "Switch to Small Scale";
+    } else {
+      document.getElementById("plan-small").classList.add("current");
+      document.getElementById("tag-small").style.display = "block";
+      document.getElementById("tag-small").textContent   = "Your Plan";
+      document.getElementById("tag-small").className     = "plan-tag current";
+
+      document.getElementById("btn-small").textContent = data.freePeriod ? "✅ Your Current Plan (Free Trial)" : "✅ Your Current Plan";
+      document.getElementById("btn-large").textContent = "Switch to Large Scale";
+    }
+  }
+
+
+  // ═══════════════════════════════════
+  //  SELECT PLAN
+  // ═══════════════════════════════════
+  function selectPlan(plan) {
+    if (plan === "large") {
+      window.location.href = "profile.html?upgrade=large";
+    } else {
+      window.location.href = "profile.html?upgrade=small";
+    }
+  }
+
+
+  // ═══════════════════════════════════
+  //  FAQ TOGGLE
+  // ═══════════════════════════════════
+  function toggleFaq(el) {
+    const wasOpen = el.classList.contains("open");
+    document.querySelectorAll(".faq-item").forEach(f=>f.classList.remove("open"));
+    if (!wasOpen) el.classList.add("open");
+  }
+
+  // ═══════════════════════════════════
+  //  BILLING PERIOD TOGGLE
+  //  Switches between monthly and annual
+  //  pricing display. Prices in USD with
+  //  KES equivalent shown underneath.
+  //  Exchange rate used: ~130 KES = $1
+  // ═══════════════════════════════════
+  const PRICES = {
+    monthly: {
+      small: { usd: 10,  kes: "1,300",  period: "/ month" },
+      large: { usd: 25,  kes: "3,250",  period: "/ month" }
+    },
+    annual: {
+      small: { usd: 100, kes: "13,000", period: "/ year" },
+      large: { usd: 250, kes: "32,500", period: "/ year" }
+    }
+  };
+
+  function setBilling(period) {
+    document.getElementById("bt-monthly").classList.toggle("active", period==="monthly");
+    document.getElementById("bt-annual").classList.toggle("active", period==="annual");
+
+    const p = PRICES[period];
+
+    document.getElementById("price-small").innerHTML =
+      "$" + p.small.usd + ' <span class="pp-period">' + p.small.period + '</span>';
+    document.getElementById("price-small-kes").textContent =
+      "≈ KES " + p.small.kes + " " + p.small.period;
+
+    document.getElementById("price-large").innerHTML =
+      "$" + p.large.usd + ' <span class="pp-period">' + p.large.period + '</span>';
+    document.getElementById("price-large-kes").textContent =
+      "≈ KES " + p.large.kes + " " + p.large.period;
+  }
+
+  loadStatus();
+</script>
+<script src="../js/notifications.js"></script>
+</body>
+</html>

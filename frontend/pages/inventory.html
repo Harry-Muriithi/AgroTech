@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgroTech — Inventory</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f4f1;color:#1a1a1a}
+    .shell{display:flex;min-height:100vh}
+
+    /* SIDEBAR */
+    .sidebar{width:220px;background:#1a3d2b;display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;overflow-y:auto}
+    .sb-logo{padding:20px 16px 14px;border-bottom:1px solid rgba(255,255,255,0.1)}
+    .sb-logo h1{font-size:20px;font-weight:800;color:#fff}
+    .sb-logo h1 span{color:#52b788}
+    .sb-logo p{font-size:11px;color:rgba(255,255,255,0.35);margin-top:2px}
+    .sb-user{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.1)}
+    .sb-user .name{font-size:13px;font-weight:600;color:#fff}
+    .sb-user .info{font-size:11px;color:rgba(255,255,255,0.45);margin-top:2px}
+    .sb-user .badge{display:inline-block;background:#f4a261;color:#7a3c0a;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;margin-top:5px}
+    .sb-nav{flex:1;padding:8px 0}
+    .sb-nav a{display:flex;align-items:center;gap:10px;padding:10px 16px;color:rgba(255,255,255,0.65);text-decoration:none;font-size:13px;font-weight:500;border-left:3px solid transparent;transition:all 0.15s}
+    .sb-nav a:hover{background:rgba(255,255,255,0.07);color:#fff}
+    .sb-nav a.active{background:rgba(82,183,136,0.15);color:#fff;border-left-color:#52b788}
+    .sb-nav a .ic{font-size:17px;width:20px;text-align:center}
+    .sb-bottom{padding:14px 16px;border-top:1px solid rgba(255,255,255,0.1)}
+    .logout-btn{background:none;border:none;color:rgba(255,255,255,0.35);font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px}
+    .logout-btn:hover{color:rgba(255,255,255,0.7)}
+
+    /* MAIN */
+    .main{margin-left:220px;flex:1;display:flex;flex-direction:column}
+    .topbar{background:#fff;border-bottom:1px solid #d5e8da;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+    .topbar h2{font-size:18px;font-weight:700;color:#1a3d2b}
+    .topbar p{font-size:12px;color:#888;margin-top:2px}
+    .body{padding:24px}
+
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;border:none;text-decoration:none;transition:all 0.15s}
+    .btn-primary{background:#1a3d2b;color:#fff}
+    .btn-primary:hover{background:#2d6a4f}
+    .btn-outline{background:transparent;border:1.5px solid #1a3d2b;color:#1a3d2b}
+    .btn-outline:hover{background:#eaf3de}
+
+    /* ALERT BANNERS */
+    .alert-banner{
+      display:flex;align-items:center;gap:12px;
+      padding:14px 18px;border-radius:10px;
+      margin-bottom:14px;font-size:14px;font-weight:600;
+    }
+    .alert-banner.critical{background:#fcebeb;border:1.5px solid #f09595;color:#a32d2d}
+    .alert-banner.warn{background:#fff8e1;border:1.5px solid #ffe082;color:#e65100}
+    .alert-banner .ab-icon{font-size:24px}
+
+    /* STATS */
+    .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+    .stat-card{background:#fff;border-radius:12px;border:1px solid #d5e8da;padding:16px 18px}
+    .stat-card .s-icon{font-size:26px;margin-bottom:6px}
+    .stat-card .s-val{font-size:26px;font-weight:800;color:#1a3d2b;line-height:1}
+    .stat-card .s-lbl{font-size:12px;color:#888;margin-top:4px}
+    .stat-card.good{border-left:4px solid #52b788}
+    .stat-card.warn{border-left:4px solid #f4a261}
+    .stat-card.alert{border-left:4px solid #e24b4a}
+    .stat-card .s-val.red{color:#e24b4a}
+    .stat-card .s-val.amber{color:#e65100}
+
+    /* ── ADD ITEM FORM ── */
+    .add-form{
+      background:#fff;border-radius:14px;
+      border:1px solid #d5e8da;padding:24px;
+      margin-bottom:24px;display:none;
+    }
+    .add-form.open{display:block}
+    .add-form h3{font-size:17px;font-weight:800;color:#1a3d2b;margin-bottom:18px}
+
+    /* Category picker */
+    .cat-picker{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-bottom:18px}
+    .cat-btn{background:#f0f4f1;border:2px solid transparent;border-radius:10px;padding:12px 8px;text-align:center;cursor:pointer;transition:all 0.15s}
+    .cat-btn:hover{border-color:#52b788;background:#eaf3de}
+    .cat-btn.selected{border-color:#1a3d2b;background:#eaf3de}
+    .cat-btn .cb-icon{font-size:26px;margin-bottom:4px}
+    .cat-btn .cb-name{font-size:12px;font-weight:700;color:#1a3d2b}
+
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+    .form-grid.three{grid-template-columns:1fr 1fr 1fr}
+    .form-group label{display:block;font-size:13px;font-weight:700;color:#555;margin-bottom:6px}
+    .form-group input,.form-group select{width:100%;padding:11px 14px;border:1.5px solid #d5e8da;border-radius:8px;font-size:14px;color:#1a1a1a;background:#fff}
+    .form-group input:focus,.form-group select:focus{outline:none;border-color:#52b788}
+    .form-hint{font-size:11px;color:#888;margin-top:4px}
+
+    .submit-btn{width:100%;padding:14px;background:#1a3d2b;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;transition:background 0.15s}
+    .submit-btn:hover{background:#2d6a4f}
+    .submit-btn:disabled{background:#aaa;cursor:not-allowed}
+
+    /* ── FILTER TABS ── */
+    .tab-row{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+    .tab-btn{padding:8px 18px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px solid #d5e8da;background:#fff;color:#666;transition:all 0.15s}
+    .tab-btn:hover{border-color:#52b788;color:#1a3d2b}
+    .tab-btn.active{background:#1a3d2b;color:#fff;border-color:#1a3d2b}
+    .tab-btn .cnt{display:inline-block;background:rgba(255,255,255,0.3);border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px}
+    .tab-btn:not(.active) .cnt{background:#f0f0f0;color:#888}
+
+    /* ── INVENTORY CARDS ── */
+    .inv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+    .inv-card{background:#fff;border-radius:12px;border:1px solid #d5e8da;overflow:hidden;transition:box-shadow 0.15s}
+    .inv-card:hover{box-shadow:0 4px 16px rgba(26,61,43,0.1)}
+    .inv-card.out{border-left:4px solid #e24b4a}
+    .inv-card.low{border-left:4px solid #f4a261}
+    .inv-card.ok{border-left:4px solid #52b788}
+
+    .inv-card-body{padding:16px}
+    .inv-header{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px}
+    .inv-icon{
+      width:44px;height:44px;border-radius:10px;
+      display:flex;align-items:center;justify-content:center;
+      font-size:22px;flex-shrink:0;
+    }
+    .inv-name{font-size:15px;font-weight:700;color:#1a3d2b}
+    .inv-cat{font-size:12px;color:#888;margin-top:2px}
+    .inv-supplier{font-size:11px;color:#aaa;margin-top:2px}
+
+    .stock-badge{
+      margin-left:auto;padding:3px 10px;border-radius:20px;
+      font-size:11px;font-weight:700;white-space:nowrap;
+    }
+    .badge-out{background:#fcebeb;color:#a32d2d}
+    .badge-low{background:#fff8e1;color:#e65100}
+    .badge-ok{background:#eaf3de;color:#2e7d32}
+
+    /* Quantity display */
+    .qty-display{
+      background:#f9fcfa;border-radius:10px;padding:14px;
+      text-align:center;margin-bottom:12px;
+    }
+    .qty-number{font-size:32px;font-weight:900;color:#1a3d2b;line-height:1}
+    .qty-unit{font-size:13px;color:#888;margin-top:3px}
+    .qty-display.out .qty-number{color:#e24b4a}
+    .qty-display.low .qty-number{color:#e65100}
+
+    /* Stock level bar */
+    .stock-bar{background:#f0f4f1;border-radius:10px;height:8px;overflow:hidden;margin-bottom:4px}
+    .stock-fill{height:100%;border-radius:10px;transition:width 0.5s}
+    .stock-fill.ok{background:#52b788}
+    .stock-fill.low{background:#f4a261}
+    .stock-fill.out{background:#e24b4a}
+    .stock-label{display:flex;justify-content:space-between;font-size:11px;color:#aaa;margin-bottom:12px}
+
+    .inv-details{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+    .id-item{background:#f9fcfa;border-radius:8px;padding:8px 10px}
+    .id-label{font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase;letter-spacing:0.3px}
+    .id-value{font-size:13px;font-weight:700;color:#1a3d2b;margin-top:2px}
+
+    /* Card footer */
+    .inv-card-footer{display:flex;gap:8px;padding:10px 16px;background:#fafcfa;border-top:1px solid #f0f4f1}
+    .icf-btn{flex:1;padding:8px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid #d5e8da;background:transparent;color:#555;transition:all 0.15s;text-align:center;display:flex;align-items:center;justify-content:center;gap:5px}
+    .icf-btn:hover{border-color:#1a3d2b;color:#1a3d2b;background:#f0fff4}
+    .icf-btn.primary{background:#1a3d2b;color:#fff;border-color:#1a3d2b}
+    .icf-btn.primary:hover{background:#2d6a4f}
+    .icf-btn.danger{border-color:#f09595;color:#a32d2d}
+    .icf-btn.danger:hover{background:#fcebeb}
+
+    /* Empty state */
+    .empty{text-align:center;padding:60px 24px;background:#fff;border-radius:14px;border:1px solid #d5e8da;grid-column:1/-1}
+    .empty .e-icon{font-size:56px;margin-bottom:14px}
+    .empty h3{font-size:18px;font-weight:800;color:#1a3d2b;margin-bottom:8px}
+    .empty p{font-size:14px;color:#888;line-height:1.7}
+
+    /* Spinner */
+    .spinner{width:24px;height:24px;border:3px solid #d5e8da;border-top-color:#52b788;border-radius:50%;animation:spin 0.7s linear infinite;margin:60px auto;grid-column:1/-1}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* ── MODAL — Update Stock ── */
+    .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:500;align-items:center;justify-content:center;padding:20px}
+    .modal-overlay.open{display:flex}
+    .modal-box{background:#fff;border-radius:14px;width:100%;max-width:420px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,0.3)}
+    .modal-box h3{font-size:17px;font-weight:800;color:#1a3d2b;margin-bottom:16px}
+    .modal-current{background:#f0f4f1;border-radius:10px;padding:14px;text-align:center;margin-bottom:16px}
+    .modal-current .mc-label{font-size:12px;color:#888;margin-bottom:4px}
+    .modal-current .mc-value{font-size:28px;font-weight:900;color:#1a3d2b}
+
+    /* Quick adjust buttons */
+    .quick-adjust{display:flex;gap:8px;margin-bottom:16px}
+    .qa-btn{flex:1;padding:10px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:1.5px solid #d5e8da;background:#fff;color:#1a3d2b;transition:all 0.15s}
+    .qa-btn:hover{border-color:#52b788;background:#eaf3de}
+    .qa-btn.minus{color:#a32d2d}
+    .qa-btn.minus:hover{border-color:#f09595;background:#fcebeb}
+
+    .modal-footer{display:flex;gap:10px;margin-top:16px}
+    .modal-btn{flex:1;padding:11px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;border:none;transition:all 0.15s}
+    .modal-btn.primary{background:#1a3d2b;color:#fff}
+    .modal-btn.primary:hover{background:#2d6a4f}
+    .modal-btn.outline{background:transparent;border:1.5px solid #1a3d2b;color:#1a3d2b}
+    .modal-btn.outline:hover{background:#eaf3de}
+
+    /* Toast */
+    .toast{position:fixed;bottom:24px;right:24px;background:#1a3d2b;color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,0.2);z-index:999;display:none;animation:slideIn 0.3s ease}
+    @keyframes slideIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sb-logo"><h1>🌿 Agro<span>Tech</span></h1><p>Smart Farming · Kenya</p></div>
+    <div class="sb-user">
+      <div class="name" id="sb-name">Loading...</div>
+      <div class="info" id="sb-info"></div>
+      <span class="badge" id="sb-badge" style="display:none"></span>
+    </div>
+    <nav class="sb-nav">
+      <a href="dashboard.html"><span class="ic">🏠</span> Dashboard</a>
+      <a href="scan.html"><span class="ic">📷</span> Scan Crop</a>
+      <a href="history.html"><span class="ic">📋</span> Scan History</a>
+      <a href="schedule.html"><span class="ic">📅</span> Farm Schedule</a>
+      <a href="inventory.html" class="active"><span class="ic">📦</span> Inventory</a>
+      <a href="profit.html"><span class="ic">💰</span> Profit & Harvest</a>
+      <a href="subscription.html"><span class="ic">⭐</span> Subscription</a>
+      <a href="profile.html"><span class="ic">👤</span> Profile</a>
+    </nav>
+    <div class="sb-bottom">
+      <button class="logout-btn" onclick="doLogout()">🚪 Log out</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <h2>📦 Inventory</h2>
+        <p>Track fertilisers, pesticides, seeds and supplies</p>
+      </div>
+      <button class="btn btn-primary" onclick="toggleAddForm()">
+        ➕ Add Item
+      </button>
+    </div>
+
+    <div class="body">
+
+      <!-- ALERT BANNERS -->
+      <div id="alerts-area"></div>
+
+      <!-- STATS -->
+      <div class="stats-row">
+        <div class="stat-card good">
+          <div class="s-icon">📦</div>
+          <div class="s-val" id="stat-total">—</div>
+          <div class="s-lbl">Total Items</div>
+        </div>
+        <div class="stat-card warn">
+          <div class="s-icon">⚠️</div>
+          <div class="s-val amber" id="stat-low">—</div>
+          <div class="s-lbl">Low Stock</div>
+        </div>
+        <div class="stat-card alert">
+          <div class="s-icon">🚨</div>
+          <div class="s-val red" id="stat-out">—</div>
+          <div class="s-lbl">Out of Stock</div>
+        </div>
+        <div class="stat-card good">
+          <div class="s-icon">💰</div>
+          <div class="s-val" id="stat-value">—</div>
+          <div class="s-lbl">Total Value (KES)</div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════
+           ADD ITEM FORM (toggleable)
+      ══════════════════════════ -->
+      <div class="add-form" id="add-form">
+        <h3>➕ Add New Inventory Item</h3>
+
+        <!-- Category picker -->
+        <div style="margin-bottom:16px">
+          <label style="display:block;font-size:13px;font-weight:700;color:#555;margin-bottom:10px">
+            What type of item is this?
+          </label>
+          <div class="cat-picker" id="cat-picker">
+            <div class="cat-btn selected" onclick="pickCategory('Fungicide','🧪',this)">
+              <div class="cb-icon">🧪</div><div class="cb-name">Fungicide</div>
+            </div>
+            <div class="cat-btn" onclick="pickCategory('Insecticide','🐛',this)">
+              <div class="cb-icon">🐛</div><div class="cb-name">Insecticide</div>
+            </div>
+            <div class="cat-btn" onclick="pickCategory('Herbicide','🌿',this)">
+              <div class="cb-icon">🌿</div><div class="cb-name">Herbicide</div>
+            </div>
+            <div class="cat-btn" onclick="pickCategory('Fertilizer','🌾',this)">
+              <div class="cb-icon">🌾</div><div class="cb-name">Fertilizer</div>
+            </div>
+            <div class="cat-btn" onclick="pickCategory('Seeds','🌱',this)">
+              <div class="cb-icon">🌱</div><div class="cb-name">Seeds</div>
+            </div>
+            <div class="cat-btn" onclick="pickCategory('Equipment','🛠️',this)">
+              <div class="cb-icon">🛠️</div><div class="cb-name">Equipment</div>
+            </div>
+            <div class="cat-btn" onclick="pickCategory('Other','📦',this)">
+              <div class="cb-icon">📦</div><div class="cb-name">Other</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Item Name *</label>
+            <input type="text" id="add-name" placeholder="e.g. Mancozeb 80WP, DAP Fertilizer">
+          </div>
+          <div class="form-group">
+            <label>Supplier (optional)</label>
+            <input type="text" id="add-supplier" placeholder="e.g. Farmers Choice Agrovet">
+          </div>
+        </div>
+
+        <div class="form-grid three">
+          <div class="form-group">
+            <label>Quantity *</label>
+            <input type="number" id="add-qty" placeholder="e.g. 5" min="0" step="0.5">
+          </div>
+          <div class="form-group">
+            <label>Unit</label>
+            <select id="add-unit">
+              <option>kg</option><option>g</option><option>litres</option>
+              <option>ml</option><option>bags</option><option>packets</option>
+              <option>pieces</option><option>bottles</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Cost per unit (KES)</label>
+            <input type="number" id="add-cost" placeholder="e.g. 350" min="0">
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label>⚠️ Alert me when stock falls below</label>
+            <input type="number" id="add-lowat" placeholder="e.g. 2" min="0" step="0.5" value="2">
+            <div class="form-hint">You'll see a warning when quantity reaches this level</div>
+          </div>
+          <div class="form-group">
+            <label>📅 Date Purchased (optional)</label>
+            <input type="date" id="add-date">
+          </div>
+        </div>
+
+        <button class="submit-btn" id="add-item-btn" onclick="addItem()">
+          ✅ Save to Inventory
+        </button>
+      </div>
+
+      <!-- FILTER TABS -->
+      <div class="tab-row">
+        <button class="tab-btn active" onclick="setFilter('all',this)">All <span class="cnt" id="cnt-all">0</span></button>
+        <button class="tab-btn" onclick="setFilter('out',this)">🚨 Out of Stock <span class="cnt" id="cnt-out">0</span></button>
+        <button class="tab-btn" onclick="setFilter('low',this)">⚠️ Low Stock <span class="cnt" id="cnt-low">0</span></button>
+        <button class="tab-btn" onclick="setFilter('Fungicide',this)">🧪 Fungicides</button>
+        <button class="tab-btn" onclick="setFilter('Insecticide',this)">🐛 Insecticides</button>
+        <button class="tab-btn" onclick="setFilter('Fertilizer',this)">🌾 Fertilizers</button>
+        <button class="tab-btn" onclick="setFilter('Seeds',this)">🌱 Seeds</button>
+      </div>
+
+      <!-- INVENTORY GRID -->
+      <div class="inv-grid" id="inv-grid">
+        <div class="spinner"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- UPDATE STOCK MODAL -->
+<div class="modal-overlay" id="update-modal">
+  <div class="modal-box">
+    <h3 id="modal-title">Update Stock</h3>
+
+    <div class="modal-current">
+      <div class="mc-label">Current Stock</div>
+      <div class="mc-value" id="modal-current-qty">0 kg</div>
+    </div>
+
+    <!-- Quick adjust buttons -->
+    <div style="margin-bottom:8px;font-size:13px;font-weight:700;color:#555">Quick adjust:</div>
+    <div class="quick-adjust">
+      <button class="qa-btn minus" onclick="adjustQty(-5)">−5</button>
+      <button class="qa-btn minus" onclick="adjustQty(-1)">−1</button>
+      <button class="qa-btn" onclick="adjustQty(1)">+1</button>
+      <button class="qa-btn" onclick="adjustQty(5)">+5</button>
+    </div>
+
+    <div class="form-group">
+      <label>Or enter exact new quantity:</label>
+      <input type="number" id="modal-new-qty" min="0" step="0.5">
+    </div>
+
+    <div class="modal-footer">
+      <button class="modal-btn outline" onclick="closeModal()">Cancel</button>
+      <button class="modal-btn primary" onclick="saveUpdate()">✅ Update Stock</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const API   = "http://localhost:8000";
+  const token = localStorage.getItem("agro_token");
+  if (!token) window.location.href = "../index.html";
+  const user = JSON.parse(localStorage.getItem("agro_user") || "{}");
+
+  document.getElementById("sb-name").textContent = user.name || "Farmer";
+  document.getElementById("sb-info").textContent =
+    (user.farmScale==="large"?"Large Scale":"Small Scale")+" · "+(user.county||"Kenya");
+  if (user.freePeriod) {
+    const b = document.getElementById("sb-badge");
+    b.textContent = "🎁 FREE — "+user.freeDaysLeft+" days left";
+    b.style.display = "inline-block";
+  }
+  function doLogout() {
+    localStorage.removeItem("agro_token");
+    localStorage.removeItem("agro_user");
+    window.location.href = "../index.html";
+  }
+
+  // ── State ──────────────────────
+  let allItems       = [];
+  let currentFilter  = "all";
+  let selectedCat    = "Fungicide";
+  let selectedIcon   = "🧪";
+  let editItemId     = null;
+  let editItemQty    = 0;
+  let editItemUnit   = "";
+
+  const catIcons = {
+    Fungicide:"🧪", Insecticide:"🐛", Herbicide:"🌿",
+    Fertilizer:"🌾", Seeds:"🌱", Equipment:"🛠️", Other:"📦"
+  };
+  const catColors = {
+    Fungicide:"#fff8e1", Insecticide:"#fce4ec", Herbicide:"#e8f5e9",
+    Fertilizer:"#fff3e0", Seeds:"#e8f5e9", Equipment:"#e3f2fd", Other:"#f5f5f5"
+  };
+
+
+  // ═══════════════════════════════════
+  //  TOGGLE ADD FORM
+  // ═══════════════════════════════════
+  function toggleAddForm() {
+    document.getElementById("add-form").classList.toggle("open");
+  }
+
+
+  // ═══════════════════════════════════
+  //  CATEGORY PICKER
+  // ═══════════════════════════════════
+  function pickCategory(cat, icon, el) {
+    selectedCat  = cat;
+    selectedIcon = icon;
+    document.querySelectorAll(".cat-btn").forEach(b=>b.classList.remove("selected"));
+    el.classList.add("selected");
+  }
+
+
+  // ═══════════════════════════════════
+  //  ADD NEW ITEM
+  // ═══════════════════════════════════
+  async function addItem() {
+    const name     = document.getElementById("add-name").value.trim();
+    const supplier = document.getElementById("add-supplier").value.trim();
+    const qty      = parseFloat(document.getElementById("add-qty").value);
+    const unit     = document.getElementById("add-unit").value;
+    const cost     = parseFloat(document.getElementById("add-cost").value) || 0;
+    const lowAt    = parseFloat(document.getElementById("add-lowat").value) || 2;
+    const btn      = document.getElementById("add-item-btn");
+
+    if (!name)      { showToast("⚠️ Please enter the item name"); return; }
+    if (isNaN(qty)) { showToast("⚠️ Please enter the quantity");   return; }
+
+    btn.disabled    = true;
+    btn.textContent = "⏳ Saving...";
+
+    try {
+      await fetch(API+"/inventory", {
+        method:  "POST",
+        headers: {"Content-Type":"application/json","Authorization":"Bearer "+token},
+        body: JSON.stringify({
+          name: name, category: selectedCat, quantity: qty,
+          unit: unit, low_at: lowAt, cost: cost, supplier: supplier
+        })
+      });
+
+      // Reset form
+      document.getElementById("add-name").value     = "";
+      document.getElementById("add-supplier").value = "";
+      document.getElementById("add-qty").value      = "";
+      document.getElementById("add-cost").value     = "";
+      document.getElementById("add-lowat").value    = "2";
+      document.getElementById("add-date").value     = "";
+      toggleAddForm();
+
+      showToast("✅ "+selectedIcon+" "+name+" added to inventory!");
+      loadInventory();
+    } catch(e) {
+      showToast("❌ Could not add item. Check backend is running.");
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = "✅ Save to Inventory";
+    }
+  }
+
+
+  // ═══════════════════════════════════
+  //  LOAD INVENTORY FROM BACKEND
+  // ═══════════════════════════════════
+  async function loadInventory() {
+    try {
+      const res = await fetch(API+"/inventory", {
+        headers: {"Authorization":"Bearer "+token}
+      });
+      allItems = await res.json();
+      updateStats();
+      updateCounts();
+      checkAlerts();
+      renderItems();
+    } catch(e) {
+      document.getElementById("inv-grid").innerHTML =
+        '<div class="empty"><div class="e-icon">❌</div><h3>Could not load inventory</h3><p>Make sure the backend is running</p></div>';
+    }
+  }
+
+
+  // ═══════════════════════════════════
+  //  UPDATE STATS
+  // ═══════════════════════════════════
+  function updateStats() {
+    document.getElementById("stat-total").textContent = allItems.length;
+    document.getElementById("stat-low").textContent   = allItems.filter(i=>i.isLow).length;
+    document.getElementById("stat-out").textContent   = allItems.filter(i=>i.isOut).length;
+
+    const totalValue = allItems.reduce((sum,i) => sum + (i.quantity * (i.cost||0)), 0);
+    document.getElementById("stat-value").textContent = Math.round(totalValue).toLocaleString("en-KE");
+  }
+
+  function updateCounts() {
+    document.getElementById("cnt-all").textContent = allItems.length;
+    document.getElementById("cnt-out").textContent = allItems.filter(i=>i.isOut).length;
+    document.getElementById("cnt-low").textContent = allItems.filter(i=>i.isLow).length;
+  }
+
+
+  // ═══════════════════════════════════
+  //  ALERT BANNERS
+  // ═══════════════════════════════════
+  function checkAlerts() {
+    const out = allItems.filter(i=>i.isOut);
+    const low = allItems.filter(i=>i.isLow && !i.isOut);
+    const area = document.getElementById("alerts-area");
+
+    let html = "";
+    if (out.length) {
+      html += `<div class="alert-banner critical">
+        <span class="ab-icon">🚨</span>
+        <div>
+          <strong>${out.length} item${out.length>1?'s are':' is'} OUT OF STOCK!</strong><br>
+          <span style="font-weight:400;font-size:13px">${out.map(i=>i.name).join(", ")} — restock urgently before your next spray day.</span>
+        </div>
+      </div>`;
+    }
+    if (low.length) {
+      html += `<div class="alert-banner warn">
+        <span class="ab-icon">⚠️</span>
+        <div>
+          <strong>${low.length} item${low.length>1?'s are':' is'} running LOW</strong><br>
+          <span style="font-weight:400;font-size:13px">${low.map(i=>i.name).join(", ")} — consider restocking soon.</span>
+        </div>
+      </div>`;
+    }
+    area.innerHTML = html;
+  }
+
+
+  // ═══════════════════════════════════
+  //  FILTER
+  // ═══════════════════════════════════
+  function setFilter(f, btn) {
+    currentFilter = f;
+    document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    renderItems();
+  }
+
+
+  // ═══════════════════════════════════
+  //  RENDER ITEMS
+  // ═══════════════════════════════════
+  function renderItems() {
+    const grid = document.getElementById("inv-grid");
+
+    let items = allItems;
+    if (currentFilter === "out") items = allItems.filter(i=>i.isOut);
+    else if (currentFilter === "low") items = allItems.filter(i=>i.isLow);
+    else if (currentFilter !== "all") items = allItems.filter(i=>i.category===currentFilter);
+
+    if (!items.length) {
+      const msgs = {
+        all:  ["📦","No inventory items yet","Click 'Add Item' above to record your first fertiliser, pesticide or seed stock."],
+        out:  ["✅","Nothing out of stock!","All your items have stock available."],
+        low:  ["✅","Nothing running low!","All your stock levels look healthy."],
+      };
+      const [icon,title,sub] = msgs[currentFilter] || ["📦","No items in this category","Try a different filter or add new items"];
+      grid.innerHTML = `<div class="empty"><div class="e-icon">${icon}</div><h3>${title}</h3><p>${sub}</p></div>`;
+      return;
+    }
+
+    // Sort: out of stock first, then low stock, then ok
+    items = [...items].sort((a,b) => {
+      const score = i => i.isOut ? 0 : i.isLow ? 1 : 2;
+      return score(a) - score(b);
+    });
+
+    grid.innerHTML = items.map(item => {
+      const icon  = catIcons[item.category] || "📦";
+      const bgCol = catColors[item.category] || "#f5f5f5";
+
+      let cardClass="ok", badgeHtml="", qtyClass="";
+      if (item.isOut) {
+        cardClass="out"; qtyClass="out";
+        badgeHtml = '<span class="stock-badge badge-out">🚨 Out of Stock</span>';
+      } else if (item.isLow) {
+        cardClass="low"; qtyClass="low";
+        badgeHtml = '<span class="stock-badge badge-low">⚠️ Low Stock</span>';
+      } else {
+        badgeHtml = '<span class="stock-badge badge-ok">✅ OK</span>';
+      }
+
+      // Stock level percentage (capped, low_at = 50% reference)
+      const maxRef = Math.max(item.lowAt * 3, item.quantity, 1);
+      const pct    = Math.min(100, Math.round((item.quantity/maxRef)*100));
+      const fillClass = item.isOut?"out":item.isLow?"low":"ok";
+
+      return `
+        <div class="inv-card ${cardClass}">
+          <div class="inv-card-body">
+            <div class="inv-header">
+              <div class="inv-icon" style="background:${bgCol}">${icon}</div>
+              <div style="flex:1">
+                <div class="inv-name">${item.name}</div>
+                <div class="inv-cat">${item.category}</div>
+                ${item.supplier ? `<div class="inv-supplier">📍 ${item.supplier}</div>` : ""}
+              </div>
+              ${badgeHtml}
+            </div>
+
+            <!-- Quantity display -->
+            <div class="qty-display ${qtyClass}">
+              <div class="qty-number">${item.quantity}</div>
+              <div class="qty-unit">${item.unit} in stock</div>
+            </div>
+
+            <!-- Stock level bar -->
+            <div class="stock-bar">
+              <div class="stock-fill ${fillClass}" style="width:${pct}%"></div>
+            </div>
+            <div class="stock-label">
+              <span>Alert at: ${item.lowAt} ${item.unit}</span>
+              <span>${pct}%</span>
+            </div>
+
+            <!-- Details -->
+            <div class="inv-details">
+              <div class="id-item">
+                <div class="id-label">Cost per unit</div>
+                <div class="id-value">${item.cost ? "KES "+item.cost.toLocaleString() : "—"}</div>
+              </div>
+              <div class="id-item">
+                <div class="id-label">Total value</div>
+                <div class="id-value">${item.cost ? "KES "+Math.round(item.quantity*item.cost).toLocaleString() : "—"}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="inv-card-footer">
+            <button class="icf-btn primary" onclick="openUpdateModal(${item.id},'${item.name.replace(/'/g,"\\'")}',${item.quantity},'${item.unit}')">
+              ✏️ Update Stock
+            </button>
+            <button class="icf-btn danger" onclick="deleteItem(${item.id})">
+              🗑️
+            </button>
+          </div>
+        </div>`;
+    }).join("");
+  }
+
+
+  // ═══════════════════════════════════
+  //  UPDATE STOCK MODAL
+  // ═══════════════════════════════════
+  function openUpdateModal(id, name, qty, unit) {
+    editItemId   = id;
+    editItemQty  = qty;
+    editItemUnit = unit;
+
+    document.getElementById("modal-title").textContent = "Update: " + name;
+    document.getElementById("modal-current-qty").textContent = qty + " " + unit;
+    document.getElementById("modal-new-qty").value = qty;
+
+    document.getElementById("update-modal").classList.add("open");
+  }
+
+  function adjustQty(delta) {
+    const input = document.getElementById("modal-new-qty");
+    let val = parseFloat(input.value) || 0;
+    val = Math.max(0, val + delta);
+    input.value = val;
+  }
+
+  async function saveUpdate() {
+    const newQty = parseFloat(document.getElementById("modal-new-qty").value);
+    if (isNaN(newQty) || newQty < 0) { showToast("⚠️ Enter a valid quantity"); return; }
+
+    try {
+      await fetch(API+"/inventory/"+editItemId, {
+        method:  "PUT",
+        headers: {"Content-Type":"application/json","Authorization":"Bearer "+token},
+        body: JSON.stringify({quantity: newQty})
+      });
+      closeModal();
+      showToast("✅ Stock updated to "+newQty+" "+editItemUnit);
+      loadInventory();
+    } catch(e) {
+      showToast("❌ Could not update stock");
+    }
+  }
+
+  function closeModal() {
+    document.getElementById("update-modal").classList.remove("open");
+  }
+
+
+  // ═══════════════════════════════════
+  //  DELETE ITEM
+  // ═══════════════════════════════════
+  async function deleteItem(id) {
+    if (!confirm("Remove this item from inventory?")) return;
+    try {
+      await fetch(API+"/inventory/"+id, {
+        method:"DELETE",
+        headers:{"Authorization":"Bearer "+token}
+      });
+      showToast("🗑️ Item removed");
+      loadInventory();
+    } catch(e) { showToast("❌ Could not delete item"); }
+  }
+
+
+  // ═══════════════════════════════════
+  //  TOAST
+  // ═══════════════════════════════════
+  function showToast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent   = msg;
+    t.style.display = "block";
+    setTimeout(()=>{ t.style.display="none"; }, 3500);
+  }
+
+  // Close modal on background click
+  document.getElementById("update-modal").addEventListener("click", function(e) {
+    if (e.target === this) closeModal();
+  });
+  document.addEventListener("keydown", e => { if (e.key==="Escape") closeModal(); });
+
+  loadInventory();
+</script>
+<script src="../js/notifications.js"></script>
+</body>
+</html>

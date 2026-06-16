@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgroTech — Profit & Harvest</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f4f1;color:#1a1a1a}
+    .shell{display:flex;min-height:100vh}
+
+    /* SIDEBAR */
+    .sidebar{width:220px;background:#1a3d2b;display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;overflow-y:auto}
+    .sb-logo{padding:20px 16px 14px;border-bottom:1px solid rgba(255,255,255,0.1)}
+    .sb-logo h1{font-size:20px;font-weight:800;color:#fff}
+    .sb-logo h1 span{color:#52b788}
+    .sb-logo p{font-size:11px;color:rgba(255,255,255,0.35);margin-top:2px}
+    .sb-user{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.1)}
+    .sb-user .name{font-size:13px;font-weight:600;color:#fff}
+    .sb-user .info{font-size:11px;color:rgba(255,255,255,0.45);margin-top:2px}
+    .sb-user .badge{display:inline-block;background:#f4a261;color:#7a3c0a;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;margin-top:5px}
+    .sb-nav{flex:1;padding:8px 0}
+    .sb-nav a{display:flex;align-items:center;gap:10px;padding:10px 16px;color:rgba(255,255,255,0.65);text-decoration:none;font-size:13px;font-weight:500;border-left:3px solid transparent;transition:all 0.15s}
+    .sb-nav a:hover{background:rgba(255,255,255,0.07);color:#fff}
+    .sb-nav a.active{background:rgba(82,183,136,0.15);color:#fff;border-left-color:#52b788}
+    .sb-nav a .ic{font-size:17px;width:20px;text-align:center}
+    .sb-bottom{padding:14px 16px;border-top:1px solid rgba(255,255,255,0.1)}
+    .logout-btn{background:none;border:none;color:rgba(255,255,255,0.35);font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px}
+    .logout-btn:hover{color:rgba(255,255,255,0.7)}
+
+    /* MAIN */
+    .main{margin-left:220px;flex:1;display:flex;flex-direction:column}
+    .topbar{background:#fff;border-bottom:1px solid #d5e8da;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+    .topbar h2{font-size:18px;font-weight:700;color:#1a3d2b}
+    .topbar p{font-size:12px;color:#888;margin-top:2px}
+    .body{padding:24px}
+
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;border:none;text-decoration:none;transition:all 0.15s}
+    .btn-primary{background:#1a3d2b;color:#fff}
+    .btn-primary:hover{background:#2d6a4f}
+    .btn-income{background:#52b788;color:#fff}
+    .btn-income:hover{background:#3d9970}
+    .btn-expense{background:#e24b4a;color:#fff}
+    .btn-expense:hover{background:#c62828}
+    .btn-outline{background:transparent;border:1.5px solid #1a3d2b;color:#1a3d2b}
+    .btn-outline:hover{background:#eaf3de}
+
+    /* ══════════════════════════
+       BIG PROFIT SUMMARY CARD
+    ══════════════════════════ */
+    .profit-summary{
+      background:linear-gradient(135deg,#1a3d2b,#2d6a4f);
+      border-radius:16px;padding:28px;color:#fff;
+      margin-bottom:24px;
+    }
+    .ps-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px}
+    .ps-label{font-size:13px;color:rgba(255,255,255,0.6);font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+    .ps-value{font-size:42px;font-weight:900;margin-top:4px;line-height:1}
+    .ps-value.negative{color:#ffab91}
+    .ps-period{
+      background:rgba(255,255,255,0.1);border-radius:20px;
+      padding:6px 14px;font-size:12px;font-weight:600;
+      border:1px solid rgba(255,255,255,0.2);
+    }
+    .ps-bottom{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .ps-stat{background:rgba(255,255,255,0.08);border-radius:12px;padding:14px 16px}
+    .ps-stat-label{font-size:12px;color:rgba(255,255,255,0.6);display:flex;align-items:center;gap:6px}
+    .ps-stat-value{font-size:24px;font-weight:800;margin-top:4px}
+    .ps-stat.income .ps-stat-value{color:#a8e6c3}
+    .ps-stat.expense .ps-stat-value{color:#ffab91}
+
+    /* Period selector */
+    .period-tabs{display:flex;gap:6px;margin-bottom:20px}
+    .period-tab{
+      padding:7px 16px;border-radius:20px;font-size:13px;font-weight:600;
+      cursor:pointer;border:1.5px solid #d5e8da;background:#fff;color:#666;
+      transition:all 0.15s;
+    }
+    .period-tab:hover{border-color:#52b788;color:#1a3d2b}
+    .period-tab.active{background:#1a3d2b;color:#fff;border-color:#1a3d2b}
+
+    /* ══════════════════════════
+       ADD TRANSACTION FORM
+    ══════════════════════════ */
+    .add-form{
+      background:#fff;border-radius:14px;border:1px solid #d5e8da;
+      padding:24px;margin-bottom:24px;display:none;
+    }
+    .add-form.open{display:block}
+    .add-form h3{font-size:17px;font-weight:800;color:#1a3d2b;margin-bottom:18px}
+
+    /* Income/Expense toggle */
+    .type-toggle{display:flex;gap:10px;margin-bottom:18px}
+    .type-btn{
+      flex:1;padding:16px;border-radius:12px;text-align:center;
+      cursor:pointer;border:2.5px solid #d5e8da;transition:all 0.15s;
+      background:#fff;
+    }
+    .type-btn .tb-icon{font-size:32px;margin-bottom:6px}
+    .type-btn .tb-label{font-size:15px;font-weight:800}
+    .type-btn.income.selected{border-color:#52b788;background:#eaf3de}
+    .type-btn.income.selected .tb-label{color:#2e7d32}
+    .type-btn.expense.selected{border-color:#e24b4a;background:#fcebeb}
+    .type-btn.expense.selected .tb-label{color:#a32d2d}
+    .type-btn:not(.selected) .tb-label{color:#888}
+
+    /* Category picker - changes based on income/expense */
+    .cat-picker{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-bottom:18px}
+    .cat-btn{background:#f0f4f1;border:2px solid transparent;border-radius:10px;padding:12px 8px;text-align:center;cursor:pointer;transition:all 0.15s}
+    .cat-btn:hover{border-color:#52b788;background:#eaf3de}
+    .cat-btn.selected{border-color:#1a3d2b;background:#eaf3de}
+    .cat-btn .cb-icon{font-size:26px;margin-bottom:4px}
+    .cat-btn .cb-name{font-size:12px;font-weight:700;color:#1a3d2b}
+
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+    .form-group label{display:block;font-size:13px;font-weight:700;color:#555;margin-bottom:6px}
+    .form-group input,.form-group select{width:100%;padding:11px 14px;border:1.5px solid #d5e8da;border-radius:8px;font-size:14px;color:#1a1a1a;background:#fff}
+    .form-group input:focus,.form-group select:focus{outline:none;border-color:#52b788}
+    .form-hint{font-size:11px;color:#888;margin-top:4px}
+
+    /* Big amount input */
+    .amount-input-wrap{position:relative;margin-bottom:14px}
+    .amount-input{
+      width:100%;padding:16px;
+      border:2px solid #d5e8da;border-radius:10px;
+      font-size:24px;font-weight:800;color:#1a3d2b;
+    }
+    .amount-input:focus{outline:none;border-color:#52b788}
+
+    .submit-btn{width:100%;padding:14px;border:none;border-radius:10px;font-size:16px;font-weight:800;cursor:pointer;transition:all 0.15s;color:#fff}
+    .submit-btn.income{background:#52b788}
+    .submit-btn.income:hover{background:#3d9970}
+    .submit-btn.expense{background:#e24b4a}
+    .submit-btn.expense:hover{background:#c62828}
+    .submit-btn:disabled{background:#aaa;cursor:not-allowed}
+
+    /* ══════════════════════════
+       BREAKDOWN CHARTS
+    ══════════════════════════ */
+    .charts-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+    .chart-card{background:#fff;border-radius:14px;border:1px solid #d5e8da;padding:20px}
+    .chart-card h4{font-size:14px;font-weight:800;color:#1a3d2b;margin-bottom:16px}
+
+    .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+    .bar-label{font-size:13px;font-weight:600;color:#555;width:110px;flex-shrink:0;display:flex;align-items:center;gap:6px}
+    .bar-track{flex:1;background:#f0f4f1;border-radius:8px;height:24px;overflow:hidden;position:relative}
+    .bar-fill{height:100%;border-radius:8px;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;transition:width 0.6s}
+    .bar-fill.income{background:linear-gradient(90deg,#52b788,#2d6a4f)}
+    .bar-fill.expense{background:linear-gradient(90deg,#f4a261,#e24b4a)}
+    .bar-value{font-size:11px;font-weight:700;color:#fff}
+    .bar-empty{font-size:13px;color:#aaa;text-align:center;padding:20px 0}
+
+    /* ══════════════════════════
+       TRANSACTION LIST
+    ══════════════════════════ */
+    .tx-list-card{background:#fff;border-radius:14px;border:1px solid #d5e8da;overflow:hidden}
+    .tx-list-header{padding:18px 20px;border-bottom:1px solid #f0f4f1;display:flex;justify-content:space-between;align-items:center}
+    .tx-list-header h4{font-size:15px;font-weight:800;color:#1a3d2b}
+
+    .tx-item{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid #f0f4f1;transition:background 0.15s}
+    .tx-item:last-child{border-bottom:none}
+    .tx-item:hover{background:#fafcfa}
+    .tx-icon{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+    .tx-icon.income{background:#eaf3de}
+    .tx-icon.expense{background:#fcebeb}
+    .tx-info{flex:1}
+    .tx-category{font-size:14px;font-weight:700;color:#1a3d2b}
+    .tx-desc{font-size:12px;color:#888;margin-top:2px}
+    .tx-date{font-size:11px;color:#aaa;margin-top:2px}
+    .tx-amount{font-size:16px;font-weight:800;text-align:right}
+    .tx-amount.income{color:#2e7d32}
+    .tx-amount.expense{color:#c62828}
+    .tx-delete{
+      width:32px;height:32px;border-radius:8px;border:1.5px solid #d5e8da;
+      background:transparent;color:#aaa;cursor:pointer;font-size:14px;
+      display:flex;align-items:center;justify-content:center;transition:all 0.15s;flex-shrink:0;
+    }
+    .tx-delete:hover{border-color:#f09595;color:#a32d2d;background:#fcebeb}
+
+    /* Empty state */
+    .empty{text-align:center;padding:50px 24px}
+    .empty .e-icon{font-size:48px;margin-bottom:12px}
+    .empty h3{font-size:16px;font-weight:700;color:#1a3d2b;margin-bottom:6px}
+    .empty p{font-size:13px;color:#888}
+
+    /* Spinner */
+    .spinner{width:24px;height:24px;border:3px solid #d5e8da;border-top-color:#52b788;border-radius:50%;animation:spin 0.7s linear infinite;margin:40px auto}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* Toast */
+    .toast{position:fixed;bottom:24px;right:24px;background:#1a3d2b;color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,0.2);z-index:999;display:none;animation:slideIn 0.3s ease}
+    @keyframes slideIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sb-logo"><h1>🌿 Agro<span>Tech</span></h1><p>Smart Farming · Kenya</p></div>
+    <div class="sb-user">
+      <div class="name" id="sb-name">Loading...</div>
+      <div class="info" id="sb-info"></div>
+      <span class="badge" id="sb-badge" style="display:none"></span>
+    </div>
+    <nav class="sb-nav">
+      <a href="dashboard.html"><span class="ic">🏠</span> Dashboard</a>
+      <a href="scan.html"><span class="ic">📷</span> Scan Crop</a>
+      <a href="history.html"><span class="ic">📋</span> Scan History</a>
+      <a href="schedule.html"><span class="ic">📅</span> Farm Schedule</a>
+      <a href="inventory.html"><span class="ic">📦</span> Inventory</a>
+      <a href="profit.html" class="active"><span class="ic">💰</span> Profit & Harvest</a>
+      <a href="subscription.html"><span class="ic">⭐</span> Subscription</a>
+      <a href="profile.html"><span class="ic">👤</span> Profile</a>
+    </nav>
+    <div class="sb-bottom">
+      <button class="logout-btn" onclick="doLogout()">🚪 Log out</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <h2>💰 Profit & Harvest</h2>
+        <p>Track income from sales and farm expenses</p>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-income" onclick="openForm('income')">💵 Record Income</button>
+        <button class="btn btn-expense" onclick="openForm('expense')">🧾 Record Expense</button>
+      </div>
+    </div>
+
+    <div class="body">
+
+      <!-- ══════════════════════════
+           PERIOD SELECTOR
+      ══════════════════════════ -->
+      <div class="period-tabs">
+        <button class="period-tab active" onclick="setPeriod('all',this)">All Time</button>
+        <button class="period-tab" onclick="setPeriod('month',this)">This Month</button>
+        <button class="period-tab" onclick="setPeriod('week',this)">This Week</button>
+        <button class="period-tab" onclick="setPeriod('today',this)">Today</button>
+      </div>
+
+      <!-- ══════════════════════════
+           BIG PROFIT SUMMARY
+      ══════════════════════════ -->
+      <div class="profit-summary">
+        <div class="ps-top">
+          <div>
+            <div class="ps-label">Net Profit</div>
+            <div class="ps-value" id="net-profit">KES 0</div>
+          </div>
+          <div class="ps-period" id="period-label">All Time</div>
+        </div>
+        <div class="ps-bottom">
+          <div class="ps-stat income">
+            <div class="ps-stat-label">💵 Total Income</div>
+            <div class="ps-stat-value" id="total-income">KES 0</div>
+          </div>
+          <div class="ps-stat expense">
+            <div class="ps-stat-label">🧾 Total Expenses</div>
+            <div class="ps-stat-value" id="total-expense">KES 0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════
+           ADD TRANSACTION FORM
+      ══════════════════════════ -->
+      <div class="add-form" id="add-form">
+        <h3 id="form-title">💵 Record Income</h3>
+
+        <!-- Income / Expense toggle -->
+        <div class="type-toggle">
+          <div class="type-btn income selected" id="type-income" onclick="setType('income')">
+            <div class="tb-icon">💵</div>
+            <div class="tb-label">Income (Money In)</div>
+          </div>
+          <div class="type-btn expense" id="type-expense" onclick="setType('expense')">
+            <div class="tb-icon">🧾</div>
+            <div class="tb-label">Expense (Money Out)</div>
+          </div>
+        </div>
+
+        <!-- Category picker - dynamically shown -->
+        <div style="margin-bottom:16px">
+          <label style="display:block;font-size:13px;font-weight:700;color:#555;margin-bottom:10px">
+            What is this for?
+          </label>
+          <div class="cat-picker" id="cat-picker"></div>
+        </div>
+
+        <!-- Big amount input -->
+        <div class="form-group">
+          <label>How much (KES)?</label>
+          <div class="amount-input-wrap">
+            <input type="number" id="t-amount" class="amount-input" placeholder="Enter amount in KES" min="0">
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label>📅 Date</label>
+            <input type="date" id="t-date">
+          </div>
+          <div class="form-group">
+            <label>🌱 Crop (optional)</label>
+            <input type="text" id="t-crop" placeholder="e.g. Tomatoes, Maize">
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:18px">
+          <label>📝 Notes (optional)</label>
+          <input type="text" id="t-desc" placeholder="e.g. Sold 50kg to local market, Bought 2 bags DAP">
+        </div>
+
+        <button class="submit-btn income" id="submit-tx-btn" onclick="addTransaction()">
+          ✅ Save Income
+        </button>
+      </div>
+
+      <!-- ══════════════════════════
+           BREAKDOWN CHARTS
+      ══════════════════════════ -->
+      <div class="charts-row">
+        <div class="chart-card">
+          <h4>💵 Income by Category</h4>
+          <div id="income-chart"><div class="spinner"></div></div>
+        </div>
+        <div class="chart-card">
+          <h4>🧾 Expenses by Category</h4>
+          <div id="expense-chart"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════
+           TRANSACTION LIST
+      ══════════════════════════ -->
+      <div class="tx-list-card">
+        <div class="tx-list-header">
+          <h4>📋 Recent Transactions</h4>
+          <span id="tx-count" style="font-size:12px;color:#888"></span>
+        </div>
+        <div id="tx-list">
+          <div class="spinner"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const API   = "http://localhost:8000";
+  const token = localStorage.getItem("agro_token");
+  if (!token) window.location.href = "../index.html";
+  const user = JSON.parse(localStorage.getItem("agro_user") || "{}");
+
+  document.getElementById("sb-name").textContent = user.name || "Farmer";
+  document.getElementById("sb-info").textContent =
+    (user.farmScale==="large"?"Large Scale":"Small Scale")+" · "+(user.county||"Kenya");
+  if (user.freePeriod) {
+    const b = document.getElementById("sb-badge");
+    b.textContent = "🎁 FREE — "+user.freeDaysLeft+" days left";
+    b.style.display = "inline-block";
+  }
+  function doLogout() {
+    localStorage.removeItem("agro_token");
+    localStorage.removeItem("agro_user");
+    window.location.href = "../index.html";
+  }
+
+  // ── State ──────────────────────
+  let allRecords    = [];
+  let currentPeriod = "all";
+  let currentType   = "income";
+  let selectedCat   = "";
+
+  // Categories for income and expense
+  const incomeCats = [
+    {name:"Crop Sales",     icon:"🌽"},
+    {name:"Livestock Sales",icon:"🐄"},
+    {name:"Dairy Sales",    icon:"🥛"},
+    {name:"Subsidy/Grant",  icon:"🏛️"},
+    {name:"Other Income",   icon:"💰"},
+  ];
+  const expenseCats = [
+    {name:"Seeds",          icon:"🌱"},
+    {name:"Fertilizer",     icon:"🌾"},
+    {name:"Pesticides",     icon:"🧪"},
+    {name:"Labour",         icon:"👷"},
+    {name:"Transport",      icon:"🚜"},
+    {name:"Equipment",      icon:"🛠️"},
+    {name:"Water/Irrigation",icon:"💧"},
+    {name:"Land Rent",      icon:"🏞️"},
+    {name:"Other Expense",  icon:"📋"},
+  ];
+
+  document.getElementById("t-date").value = new Date().toISOString().split("T")[0];
+
+
+  // ═══════════════════════════════════
+  //  OPEN FORM (income or expense)
+  // ═══════════════════════════════════
+  function openForm(type) {
+    document.getElementById("add-form").classList.add("open");
+    setType(type);
+    document.getElementById("add-form").scrollIntoView({behavior:"smooth",block:"center"});
+  }
+
+  function setType(type) {
+    currentType = type;
+    document.getElementById("type-income").classList.toggle("selected", type==="income");
+    document.getElementById("type-expense").classList.toggle("selected", type==="expense");
+
+    document.getElementById("form-title").textContent = type==="income" ? "💵 Record Income" : "🧾 Record Expense";
+
+    const btn = document.getElementById("submit-tx-btn");
+    btn.className   = "submit-btn " + type;
+    btn.textContent = type==="income" ? "✅ Save Income" : "✅ Save Expense";
+
+    renderCategoryPicker(type);
+  }
+
+  function renderCategoryPicker(type) {
+    const cats = type === "income" ? incomeCats : expenseCats;
+    selectedCat = cats[0].name;
+
+    document.getElementById("cat-picker").innerHTML = cats.map((c,i) => `
+      <div class="cat-btn ${i===0?'selected':''}" onclick="pickCategory('${c.name}',this)">
+        <div class="cb-icon">${c.icon}</div>
+        <div class="cb-name">${c.name}</div>
+      </div>`).join("");
+  }
+
+  function pickCategory(cat, el) {
+    selectedCat = cat;
+    document.querySelectorAll(".cat-btn").forEach(b=>b.classList.remove("selected"));
+    el.classList.add("selected");
+  }
+
+  // Initialise category picker on load
+  renderCategoryPicker("income");
+
+
+  // ═══════════════════════════════════
+  //  ADD TRANSACTION
+  // ═══════════════════════════════════
+  async function addTransaction() {
+    const amount = parseFloat(document.getElementById("t-amount").value);
+    const date   = document.getElementById("t-date").value;
+    const crop   = document.getElementById("t-crop").value.trim();
+    const desc   = document.getElementById("t-desc").value.trim();
+    const btn    = document.getElementById("submit-tx-btn");
+
+    if (isNaN(amount) || amount <= 0) { showToast("⚠️ Please enter an amount greater than 0"); return; }
+    if (!date) { showToast("⚠️ Please choose a date"); return; }
+
+    btn.disabled = true;
+    btn.textContent = "⏳ Saving...";
+
+    try {
+      await fetch(API+"/profit", {
+        method:  "POST",
+        headers: {"Content-Type":"application/json","Authorization":"Bearer "+token},
+        body: JSON.stringify({
+          type: currentType, amount: amount, category: selectedCat,
+          description: desc, crop: crop, date: date
+        })
+      });
+
+      // Reset form
+      document.getElementById("t-amount").value = "";
+      document.getElementById("t-crop").value   = "";
+      document.getElementById("t-desc").value   = "";
+      document.getElementById("t-date").value   = new Date().toISOString().split("T")[0];
+      document.getElementById("add-form").classList.remove("open");
+
+      showToast((currentType==="income"?"✅ Income":"✅ Expense")+" of KES "+amount.toLocaleString()+" recorded!");
+      loadRecords();
+    } catch(e) {
+      showToast("❌ Could not save. Check backend is running.");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = currentType==="income" ? "✅ Save Income" : "✅ Save Expense";
+    }
+  }
+
+
+  // ═══════════════════════════════════
+  //  LOAD RECORDS
+  // ═══════════════════════════════════
+  async function loadRecords() {
+    try {
+      const res = await fetch(API+"/profit", {
+        headers: {"Authorization":"Bearer "+token}
+      });
+      allRecords = await res.json();
+      renderAll();
+    } catch(e) {
+      document.getElementById("tx-list").innerHTML =
+        '<div class="empty"><div class="e-icon">❌</div><h3>Could not load records</h3><p>Make sure the backend is running</p></div>';
+    }
+  }
+
+
+  // ═══════════════════════════════════
+  //  PERIOD FILTER
+  // ═══════════════════════════════════
+  function setPeriod(p, btn) {
+    currentPeriod = p;
+    document.querySelectorAll(".period-tab").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+
+    const labels = {all:"All Time", month:"This Month", week:"This Week", today:"Today"};
+    document.getElementById("period-label").textContent = labels[p];
+
+    renderAll();
+  }
+
+  function filterByPeriod(records) {
+    if (currentPeriod === "all") return records;
+
+    const now = new Date();
+    return records.filter(r => {
+      const d = new Date(r.date + "T00:00:00");
+      if (currentPeriod === "today") {
+        return d.toDateString() === now.toDateString();
+      }
+      if (currentPeriod === "week") {
+        const weekAgo = new Date(now.getTime() - 7*86400000);
+        return d >= weekAgo && d <= now;
+      }
+      if (currentPeriod === "month") {
+        return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
+      }
+      return true;
+    });
+  }
+
+
+  // ═══════════════════════════════════
+  //  RENDER EVERYTHING
+  // ═══════════════════════════════════
+  function renderAll() {
+    const filtered = filterByPeriod(allRecords);
+
+    // Calculate totals
+    const income  = filtered.filter(r=>r.type==="income").reduce((s,r)=>s+r.amount,0);
+    const expense = filtered.filter(r=>r.type==="expense").reduce((s,r)=>s+r.amount,0);
+    const net     = income - expense;
+
+    // Update summary card
+    const netEl = document.getElementById("net-profit");
+    netEl.textContent = "KES " + Math.round(net).toLocaleString("en-KE");
+    netEl.className   = "ps-value" + (net < 0 ? " negative" : "");
+
+    document.getElementById("total-income").textContent  = "KES " + Math.round(income).toLocaleString("en-KE");
+    document.getElementById("total-expense").textContent = "KES " + Math.round(expense).toLocaleString("en-KE");
+
+    // Render charts
+    renderChart("income-chart", filtered.filter(r=>r.type==="income"), "income");
+    renderChart("expense-chart", filtered.filter(r=>r.type==="expense"), "expense");
+
+    // Render transaction list
+    renderTxList(filtered);
+  }
+
+
+  // ═══════════════════════════════════
+  //  RENDER CATEGORY BREAKDOWN CHART
+  // ═══════════════════════════════════
+  function renderChart(elId, records, type) {
+    const el = document.getElementById(elId);
+
+    if (!records.length) {
+      el.innerHTML = `<div class="bar-empty">No ${type} recorded ${currentPeriod==="all"?"yet":"in this period"}</div>`;
+      return;
+    }
+
+    // Group by category
+    const grouped = {};
+    records.forEach(r => {
+      grouped[r.category] = (grouped[r.category]||0) + r.amount;
+    });
+
+    const total = Object.values(grouped).reduce((a,b)=>a+b,0);
+    const sorted = Object.entries(grouped).sort((a,b)=>b[1]-a[1]);
+
+    const allCats = [...incomeCats, ...expenseCats];
+    const getIcon = (name) => allCats.find(c=>c.name===name)?.icon || "📋";
+
+    el.innerHTML = sorted.map(([cat, amount]) => {
+      const pct = Math.round((amount/total)*100);
+      return `
+        <div class="bar-row">
+          <div class="bar-label">${getIcon(cat)} ${cat}</div>
+          <div class="bar-track">
+            <div class="bar-fill ${type}" style="width:${pct}%">
+              <span class="bar-value">KES ${Math.round(amount).toLocaleString()}</span>
+            </div>
+          </div>
+        </div>`;
+    }).join("");
+  }
+
+
+  // ═══════════════════════════════════
+  //  RENDER TRANSACTION LIST
+  // ═══════════════════════════════════
+  function renderTxList(records) {
+    const el = document.getElementById("tx-list");
+    document.getElementById("tx-count").textContent =
+      records.length + " transaction" + (records.length!==1?"s":"");
+
+    if (!records.length) {
+      el.innerHTML = `<div class="empty"><div class="e-icon">💰</div><h3>No transactions yet</h3><p>Click "Record Income" or "Record Expense" above to get started</p></div>`;
+      return;
+    }
+
+    // Sort newest first
+    const sorted = [...records].sort((a,b) => new Date(b.date) - new Date(a.date));
+
+    const allCats = [...incomeCats, ...expenseCats];
+    const getIcon = (name) => allCats.find(c=>c.name===name)?.icon || "📋";
+
+    el.innerHTML = sorted.map(r => {
+      const dateStr = new Date(r.date+"T00:00:00").toLocaleDateString("en-KE",{
+        weekday:"short",day:"numeric",month:"short",year:"numeric"
+      });
+      return `
+        <div class="tx-item">
+          <div class="tx-icon ${r.type}">${getIcon(r.category)}</div>
+          <div class="tx-info">
+            <div class="tx-category">${r.category}${r.crop?" — "+r.crop:""}</div>
+            ${r.description ? `<div class="tx-desc">${r.description}</div>` : ""}
+            <div class="tx-date">📅 ${dateStr}</div>
+          </div>
+          <div class="tx-amount ${r.type}">
+            ${r.type==="income"?"+":"−"} KES ${Math.round(r.amount).toLocaleString()}
+          </div>
+          <button class="tx-delete" onclick="deleteRecord(${r.id})">🗑️</button>
+        </div>`;
+    }).join("");
+  }
+
+
+  // ═══════════════════════════════════
+  //  DELETE RECORD
+  // ═══════════════════════════════════
+  async function deleteRecord(id) {
+    if (!confirm("Delete this transaction?")) return;
+    try {
+      await fetch(API+"/profit/"+id, {
+        method:"DELETE",
+        headers:{"Authorization":"Bearer "+token}
+      });
+      showToast("🗑️ Transaction deleted");
+      loadRecords();
+    } catch(e) { showToast("❌ Could not delete"); }
+  }
+
+
+  // ═══════════════════════════════════
+  //  TOAST
+  // ═══════════════════════════════════
+  function showToast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent   = msg;
+    t.style.display = "block";
+    setTimeout(()=>{ t.style.display="none"; }, 3500);
+  }
+
+  loadRecords();
+</script>
+<script src="../js/notifications.js"></script>
+</body>
+</html>

@@ -1,0 +1,1321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgroTech — Farm Schedule</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f4f1;color:#1a1a1a}
+    .shell{display:flex;min-height:100vh}
+
+    /* ── SIDEBAR ── */
+    .sidebar{width:220px;background:#1a3d2b;display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;overflow-y:auto}
+    .sb-logo{padding:20px 16px 14px;border-bottom:1px solid rgba(255,255,255,0.1)}
+    .sb-logo h1{font-size:20px;font-weight:800;color:#fff}
+    .sb-logo h1 span{color:#52b788}
+    .sb-logo p{font-size:11px;color:rgba(255,255,255,0.35);margin-top:2px}
+    .sb-user{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.1)}
+    .sb-user .name{font-size:13px;font-weight:600;color:#fff}
+    .sb-user .info{font-size:11px;color:rgba(255,255,255,0.45);margin-top:2px}
+    .sb-user .badge{display:inline-block;background:#f4a261;color:#7a3c0a;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;margin-top:5px}
+    .sb-nav{flex:1;padding:8px 0}
+    .sb-nav a{display:flex;align-items:center;gap:10px;padding:10px 16px;color:rgba(255,255,255,0.65);text-decoration:none;font-size:13px;font-weight:500;border-left:3px solid transparent;transition:all 0.15s}
+    .sb-nav a:hover{background:rgba(255,255,255,0.07);color:#fff}
+    .sb-nav a.active{background:rgba(82,183,136,0.15);color:#fff;border-left-color:#52b788}
+    .sb-nav a .ic{font-size:17px;width:20px;text-align:center}
+    .sb-bottom{padding:14px 16px;border-top:1px solid rgba(255,255,255,0.1)}
+    .logout-btn{background:none;border:none;color:rgba(255,255,255,0.35);font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px}
+    .logout-btn:hover{color:rgba(255,255,255,0.7)}
+
+    /* ── MAIN ── */
+    .main{margin-left:220px;flex:1;display:flex;flex-direction:column}
+    .topbar{background:#fff;border-bottom:1px solid #d5e8da;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+    .topbar h2{font-size:18px;font-weight:700;color:#1a3d2b}
+    .topbar p{font-size:12px;color:#888;margin-top:2px}
+    .body{padding:24px}
+
+    /* ── BIG MODE CHOOSER ──
+       This is the first thing the farmer sees.
+       Two huge buttons — Auto or Manual.
+       Big, clear, easy for older farmers.
+    ── */
+    .mode-chooser{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:16px;
+      margin-bottom:28px;
+    }
+    .mode-card{
+      background:#fff;border-radius:14px;
+      border:2.5px solid #d5e8da;
+      padding:24px 20px;
+      text-align:center;
+      cursor:pointer;
+      transition:all 0.2s;
+    }
+    .mode-card:hover{border-color:#52b788;box-shadow:0 4px 16px rgba(26,61,43,0.1)}
+    .mode-card.selected{border-color:#1a3d2b;background:#f0fff4}
+    .mode-card .mc-icon{font-size:48px;margin-bottom:12px}
+    .mode-card h3{font-size:18px;font-weight:800;color:#1a3d2b;margin-bottom:8px}
+    .mode-card p{font-size:13px;color:#666;line-height:1.6}
+    .mode-card .mc-tag{
+      display:inline-block;margin-top:12px;
+      padding:4px 14px;border-radius:20px;
+      font-size:12px;font-weight:700;
+    }
+    .mc-tag.auto{background:#eaf3de;color:#1a3d2b}
+    .mc-tag.manual{background:#e3f2fd;color:#0d47a1}
+
+    /* ── SECTION HEADER ── */
+    .section-hd{
+      display:flex;align-items:center;justify-content:space-between;
+      margin-bottom:18px;
+    }
+    .section-hd h3{font-size:16px;font-weight:800;color:#1a3d2b}
+    .section-hd p{font-size:12px;color:#888;margin-top:2px}
+
+    /* ── OVERDUE ALERT BANNER ── */
+    .overdue-banner{
+      background:#fcebeb;border:1.5px solid #f09595;
+      border-radius:10px;padding:14px 18px;
+      margin-bottom:20px;
+      display:flex;align-items:center;gap:12px;
+      font-size:14px;color:#a32d2d;font-weight:600;
+    }
+    .overdue-banner .ob-icon{font-size:24px}
+
+    /* ══════════════════════════════════
+       AUTO SCHEDULE SECTION
+    ══════════════════════════════════ */
+    .auto-section{display:none}
+
+    /* Step indicator — shows farmer where they are */
+    .steps-bar{
+      display:flex;align-items:center;
+      gap:0;margin-bottom:24px;
+      background:#fff;border-radius:10px;
+      border:1px solid #d5e8da;
+      overflow:hidden;
+    }
+    .step-pill{
+      flex:1;padding:12px 8px;text-align:center;
+      font-size:13px;font-weight:600;color:#aaa;
+      border-right:1px solid #d5e8da;
+      transition:all 0.2s;
+    }
+    .step-pill:last-child{border-right:none}
+    .step-pill .sp-num{
+      width:24px;height:24px;border-radius:50%;
+      background:#e0e0e0;color:#888;
+      font-size:12px;font-weight:700;
+      display:flex;align-items:center;justify-content:center;
+      margin:0 auto 4px;
+    }
+    .step-pill.active{background:#eaf3de;color:#1a3d2b}
+    .step-pill.active .sp-num{background:#1a3d2b;color:#fff}
+    .step-pill.done{color:#52b788}
+    .step-pill.done .sp-num{background:#52b788;color:#fff}
+
+    /* Crop selector cards */
+    .crop-selector{
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
+      gap:12px;
+      margin-bottom:20px;
+    }
+    .crop-choice{
+      background:#fff;border:2px solid #d5e8da;
+      border-radius:12px;padding:16px 12px;
+      text-align:center;cursor:pointer;
+      transition:all 0.15s;
+    }
+    .crop-choice:hover{border-color:#52b788}
+    .crop-choice.selected{border-color:#1a3d2b;background:#eaf3de}
+    .crop-choice .cc-icon{font-size:36px;margin-bottom:8px}
+    .crop-choice .cc-name{font-size:14px;font-weight:700;color:#1a3d2b}
+    .crop-choice .cc-days{font-size:11px;color:#888;margin-top:3px}
+
+    /* Date inputs for auto schedule */
+    .date-form{
+      background:#fff;border-radius:12px;
+      border:1px solid #d5e8da;padding:20px;
+      margin-bottom:20px;
+    }
+    .date-form h4{font-size:15px;font-weight:700;color:#1a3d2b;margin-bottom:16px}
+    .form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+    .form-group label{display:block;font-size:13px;font-weight:700;color:#555;margin-bottom:6px}
+    .form-group input,.form-group select{
+      width:100%;padding:11px 14px;
+      border:1.5px solid #d5e8da;border-radius:8px;
+      font-size:14px;color:#1a1a1a;background:#fff;
+    }
+    .form-group input:focus,.form-group select:focus{outline:none;border-color:#52b788}
+    .form-hint{font-size:12px;color:#888;margin-top:5px}
+
+    /* Generated schedule preview */
+    .schedule-preview{
+      background:#fff;border-radius:12px;
+      border:1px solid #d5e8da;padding:20px;
+      margin-bottom:20px;
+    }
+    .schedule-preview h4{font-size:15px;font-weight:700;color:#1a3d2b;margin-bottom:16px}
+    .preview-task{
+      display:flex;align-items:center;gap:12px;
+      padding:12px 0;border-bottom:1px solid #f0f4f1;
+    }
+    .preview-task:last-child{border-bottom:none}
+    .pt-icon{
+      width:40px;height:40px;border-radius:10px;
+      display:flex;align-items:center;justify-content:center;
+      font-size:20px;flex-shrink:0;
+    }
+    .pt-title{font-size:14px;font-weight:700;color:#1a3d2b}
+    .pt-date{font-size:12px;color:#888;margin-top:3px}
+    .pt-why{font-size:12px;color:#52b788;margin-top:3px;font-style:italic}
+
+    /* ══════════════════════════════════
+       MANUAL SCHEDULE SECTION
+    ══════════════════════════════════ */
+    .manual-section{display:none}
+
+    /* Big friendly add task form */
+    .add-task-form{
+      background:#fff;border-radius:14px;
+      border:1px solid #d5e8da;padding:24px;
+      margin-bottom:24px;
+    }
+    .add-task-form h4{
+      font-size:16px;font-weight:800;color:#1a3d2b;
+      margin-bottom:20px;
+      display:flex;align-items:center;gap:8px;
+    }
+
+    /* Task type selector — big icons, easy to tap */
+    .task-types{
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(100px,1fr));
+      gap:10px;
+      margin-bottom:20px;
+    }
+    .task-type-btn{
+      background:#f0f4f1;border:2px solid transparent;
+      border-radius:10px;padding:12px 8px;
+      text-align:center;cursor:pointer;
+      transition:all 0.15s;
+    }
+    .task-type-btn:hover{border-color:#52b788;background:#eaf3de}
+    .task-type-btn.selected{border-color:#1a3d2b;background:#eaf3de}
+    .task-type-btn .tt-icon{font-size:28px;margin-bottom:6px}
+    .task-type-btn .tt-name{font-size:12px;font-weight:700;color:#1a3d2b}
+
+    /* Submit button — big and green, hard to miss */
+    .submit-big{
+      width:100%;padding:16px;background:#1a3d2b;color:#fff;
+      border:none;border-radius:10px;font-size:16px;font-weight:800;
+      cursor:pointer;transition:background 0.15s;
+      display:flex;align-items:center;justify-content:center;gap:10px;
+    }
+    .submit-big:hover{background:#2d6a4f}
+    .submit-big:disabled{background:#aaa;cursor:not-allowed}
+
+    /* ══════════════════════════════════
+       TASK LIST — same for both modes
+    ══════════════════════════════════ */
+    .tasks-list{display:flex;flex-direction:column;gap:12px}
+
+    .task-item{
+      background:#fff;border-radius:12px;
+      border:1px solid #d5e8da;
+      overflow:hidden;
+      transition:box-shadow 0.15s;
+    }
+    .task-item:hover{box-shadow:0 2px 12px rgba(26,61,43,0.08)}
+    .task-item.overdue{border-left:4px solid #e24b4a}
+    .task-item.done{opacity:0.6}
+    .task-item.today{border-left:4px solid #f4a261}
+
+    .task-body{
+      display:flex;align-items:center;gap:14px;
+      padding:16px 18px;
+    }
+    .task-type-icon{
+      width:48px;height:48px;border-radius:12px;
+      display:flex;align-items:center;justify-content:center;
+      font-size:24px;flex-shrink:0;
+    }
+    .task-info{flex:1}
+    .task-title{font-size:15px;font-weight:700;color:#1a3d2b}
+    .task-crop{font-size:13px;color:#666;margin-top:3px}
+    .task-date-row{display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap}
+    .task-date{font-size:12px;color:#888}
+
+    /* Status badges */
+    .status-badge{
+      font-size:11px;font-weight:700;padding:3px 10px;
+      border-radius:20px;
+    }
+    .sb-overdue{background:#fcebeb;color:#a32d2d}
+    .sb-today{background:#fff8e1;color:#e65100}
+    .sb-done{background:#eaf3de;color:#2e7d32}
+    .sb-pending{background:#f0f0f0;color:#666}
+    .sb-auto{background:#e3f2fd;color:#0d47a1}
+
+    .task-actions{display:flex;gap:8px;flex-shrink:0}
+    .ta-btn{
+      padding:7px 14px;border-radius:8px;
+      font-size:12px;font-weight:700;cursor:pointer;
+      border:1.5px solid #d5e8da;background:transparent;
+      color:#555;transition:all 0.15s;
+    }
+    .ta-btn:hover{border-color:#1a3d2b;color:#1a3d2b}
+    .ta-btn.done-btn{background:#1a3d2b;color:#fff;border-color:#1a3d2b}
+    .ta-btn.done-btn:hover{background:#2d6a4f}
+    .ta-btn.del-btn{border-color:#f09595;color:#a32d2d}
+    .ta-btn.del-btn:hover{background:#fcebeb}
+
+    /* Filter tabs for task list */
+    .tab-row{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+    .tab-btn{
+      padding:8px 18px;border-radius:20px;
+      font-size:13px;font-weight:600;cursor:pointer;
+      border:1.5px solid #d5e8da;background:#fff;
+      color:#666;transition:all 0.15s;
+    }
+    .tab-btn:hover{border-color:#52b788;color:#1a3d2b}
+    .tab-btn.active{background:#1a3d2b;color:#fff;border-color:#1a3d2b}
+    .tab-btn .cnt{
+      display:inline-block;background:rgba(255,255,255,0.3);
+      border-radius:10px;padding:1px 7px;
+      font-size:11px;margin-left:4px;
+    }
+    .tab-btn:not(.active) .cnt{background:#f0f0f0;color:#888}
+
+    /* Empty state */
+    .empty{text-align:center;padding:48px 24px;color:#aaa}
+    .empty .e-icon{font-size:48px;margin-bottom:12px}
+    .empty h3{font-size:16px;color:#888;margin-bottom:6px}
+    .empty p{font-size:13px}
+
+    /* Spinner */
+    .spinner{width:24px;height:24px;border:3px solid #d5e8da;border-top-color:#52b788;border-radius:50%;animation:spin 0.7s linear infinite;margin:40px auto}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* Big action button */
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;border:none;text-decoration:none;transition:all 0.15s}
+    .btn-primary{background:#1a3d2b;color:#fff}
+    .btn-primary:hover{background:#2d6a4f}
+    .btn-outline{background:transparent;border:1.5px solid #1a3d2b;color:#1a3d2b}
+    .btn-outline:hover{background:#eaf3de}
+
+    /* Success toast */
+    .toast{
+      position:fixed;bottom:24px;right:24px;
+      background:#1a3d2b;color:#fff;
+      padding:12px 20px;border-radius:10px;
+      font-size:14px;font-weight:600;
+      box-shadow:0 4px 20px rgba(0,0,0,0.2);
+      z-index:999;
+      animation:slideIn 0.3s ease;
+      display:none;
+    }
+    @keyframes slideIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sb-logo"><h1>🌿 Agro<span>Tech</span></h1><p>Smart Farming · Kenya</p></div>
+    <div class="sb-user">
+      <div class="name" id="sb-name">Loading...</div>
+      <div class="info"  id="sb-info"></div>
+      <span class="badge" id="sb-badge" style="display:none"></span>
+    </div>
+    <nav class="sb-nav">
+      <a href="dashboard.html"><span class="ic">🏠</span> Dashboard</a>
+      <a href="scan.html"><span class="ic">📷</span> Scan Crop</a>
+      <a href="history.html"><span class="ic">📋</span> Scan History</a>
+      <a href="schedule.html" class="active"><span class="ic">📅</span> Farm Schedule</a>
+      <a href="inventory.html"><span class="ic">📦</span> Inventory</a>
+      <a href="profit.html"><span class="ic">💰</span> Profit & Harvest</a>
+      <a href="subscription.html"><span class="ic">⭐</span> Subscription</a>
+      <a href="profile.html"><span class="ic">👤</span> Profile</a>
+    </nav>
+    <div class="sb-bottom">
+      <button class="logout-btn" onclick="doLogout()">🚪 Log out</button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <h2>📅 Farm Schedule</h2>
+        <p>Plan your farm activities — never miss a spray, water or harvest day</p>
+      </div>
+    </div>
+
+    <div class="body">
+
+      <!-- OVERDUE BANNER (shows only when there are overdue tasks) -->
+      <div class="overdue-banner" id="overdue-banner" style="display:none">
+        <span class="ob-icon">🚨</span>
+        <div>
+          <strong id="overdue-count">0 tasks are overdue!</strong>
+          <div style="font-size:12px;font-weight:400;margin-top:2px">
+            These tasks were supposed to be done but were not marked complete. Please action them today.
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════
+           STEP 1: CHOOSE MODE
+           Two big buttons — auto or manual.
+           Stays visible always so farmer can switch.
+      ══════════════════════════════════════ -->
+      <div class="mode-chooser">
+
+        <div class="mode-card" id="mode-auto-card" onclick="selectMode('auto')">
+          <div class="mc-icon">🤖</div>
+          <h3>Auto Schedule</h3>
+          <p>
+            Tell us your crop and planting date.<br>
+            The system will <strong>automatically create</strong>
+            all your spray, water, fertilizer and harvest tasks.
+          </p>
+          <span class="mc-tag auto">✨ AI generates tasks for you</span>
+        </div>
+
+        <div class="mode-card" id="mode-manual-card" onclick="selectMode('manual')">
+          <div class="mc-icon">✏️</div>
+          <h3>Manual Schedule</h3>
+          <p>
+            Create your own custom tasks.<br>
+            Choose the task type, date, and which crop it is for.
+            <strong>You are in full control.</strong>
+          </p>
+          <span class="mc-tag manual">📝 You create tasks yourself</span>
+        </div>
+
+      </div>
+
+
+      <!-- ══════════════════════════════════════
+           AUTO SCHEDULE SECTION
+           Hidden until farmer clicks "Auto"
+      ══════════════════════════════════════ -->
+      <div id="auto-section" class="auto-section">
+
+        <!-- Progress steps -->
+        <div class="steps-bar">
+          <div class="step-pill active" id="sp1">
+            <div class="sp-num">1</div>
+            Choose Crop
+          </div>
+          <div class="step-pill" id="sp2">
+            <div class="sp-num">2</div>
+            Set Dates
+          </div>
+          <div class="step-pill" id="sp3">
+            <div class="sp-num">3</div>
+            Review Tasks
+          </div>
+          <div class="step-pill" id="sp4">
+            <div class="sp-num">4</div>
+            ✅ Saved!
+          </div>
+        </div>
+
+        <!-- STEP 1 — Pick a crop -->
+        <div id="auto-step1">
+          <div class="section-hd">
+            <div>
+              <h3>Step 1 — Which crop are you growing?</h3>
+              <p>Tap the crop that matches what you have planted</p>
+            </div>
+          </div>
+          <div class="crop-selector">
+            <div class="crop-choice" onclick="selectCrop('Tomato','🍅',90)">
+              <div class="cc-icon">🍅</div>
+              <div class="cc-name">Tomato</div>
+              <div class="cc-days">90 days to harvest</div>
+            </div>
+            <div class="crop-choice" onclick="selectCrop('Maize','🌽',120)">
+              <div class="cc-icon">🌽</div>
+              <div class="cc-name">Maize</div>
+              <div class="cc-days">120 days to harvest</div>
+            </div>
+            <div class="crop-choice" onclick="selectCrop('Potato','🥔',90)">
+              <div class="cc-icon">🥔</div>
+              <div class="cc-name">Potato</div>
+              <div class="cc-days">90 days to harvest</div>
+            </div>
+            <div class="crop-choice" onclick="selectCrop('Cabbage','🥬',80)">
+              <div class="cc-icon">🥬</div>
+              <div class="cc-name">Cabbage</div>
+              <div class="cc-days">80 days to harvest</div>
+            </div>
+            <div class="crop-choice" onclick="selectCrop('Bean','🫘',65)">
+              <div class="cc-icon">🫘</div>
+              <div class="cc-name">Beans</div>
+              <div class="cc-days">65 days to harvest</div>
+            </div>
+            <div class="crop-choice" onclick="selectCrop('Onion','🧅',120)">
+              <div class="cc-icon">🧅</div>
+              <div class="cc-name">Onion</div>
+              <div class="cc-days">120 days to harvest</div>
+            </div>
+            <div class="crop-choice" onclick="selectCrop('Pepper','🫑',75)">
+              <div class="cc-icon">🫑</div>
+              <div class="cc-name">Pepper</div>
+              <div class="cc-days">75 days to harvest</div>
+            </div>
+            <div class="crop-choice" onclick="selectCrop('Spinach','🌿',45)">
+              <div class="cc-icon">🌿</div>
+              <div class="cc-name">Spinach</div>
+              <div class="cc-days">45 days to harvest</div>
+            </div>
+            <div class="crop-choice" onclick="selectCrop('Strawberry','🍓',60)">
+              <div class="cc-icon">🍓</div>
+              <div class="cc-name">Strawberry</div>
+              <div class="cc-days">60 days to harvest</div>
+            </div>
+            <div class="crop-choice" onclick="selectCrop('Wheat','🌾',120)">
+              <div class="cc-icon">🌾</div>
+              <div class="cc-name">Wheat</div>
+              <div class="cc-days">120 days to harvest</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 2 — Set planting date and field -->
+        <div id="auto-step2" style="display:none">
+          <div class="section-hd">
+            <div>
+              <h3 id="step2-title">Step 2 — When did you plant?</h3>
+              <p>Enter the date you put the seeds or seedlings in the ground</p>
+            </div>
+          </div>
+          <div class="date-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label>📅 Planting Date</label>
+                <input type="date" id="auto-plant-date">
+                <div class="form-hint">The day you planted or transplanted</div>
+              </div>
+              <div class="form-group">
+                <label>🌍 Field / Location Name</label>
+                <input type="text" id="auto-field" placeholder="e.g. Field A, Back Garden">
+                <div class="form-hint">Give your field a name to remember it</div>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>📐 Area (acres)</label>
+                <input type="number" id="auto-area" placeholder="e.g. 1.5" min="0" step="0.5">
+                <div class="form-hint">How big is the field?</div>
+              </div>
+              <div class="form-group">
+                <label>🌊 Water Source</label>
+                <select id="auto-water">
+                  <option value="rain">Rain fed (no irrigation)</option>
+                  <option value="irrigation">Irrigation / pipe water</option>
+                  <option value="both">Both rain and irrigation</option>
+                </select>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:8px">
+              <button class="btn btn-outline" onclick="goAutoStep(1)">← Back</button>
+              <button class="btn btn-primary" onclick="goAutoStep(3)">Generate My Schedule →</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 3 — Preview generated tasks -->
+        <div id="auto-step3" style="display:none">
+          <div class="section-hd">
+            <div>
+              <h3>Step 3 — Your Auto-Generated Schedule</h3>
+              <p>Review the tasks below. We created them based on your crop type and planting date.</p>
+            </div>
+          </div>
+          <div class="schedule-preview" id="schedule-preview">
+            <!-- Tasks previewed here -->
+          </div>
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-outline" onclick="goAutoStep(2)">← Change Dates</button>
+            <button class="btn btn-primary" onclick="saveAutoSchedule()" id="save-auto-btn">
+              ✅ Save All Tasks to My Schedule
+            </button>
+          </div>
+        </div>
+
+        <!-- STEP 4 — Success -->
+        <div id="auto-step4" style="display:none;text-align:center;padding:40px 20px;background:#fff;border-radius:14px;border:1px solid #d5e8da">
+          <div style="font-size:64px;margin-bottom:16px">🎉</div>
+          <h3 style="font-size:22px;font-weight:800;color:#1a3d2b;margin-bottom:8px">Schedule Saved!</h3>
+          <p style="font-size:14px;color:#666;margin-bottom:20px">
+            All tasks have been added to your farm schedule.<br>
+            You will be reminded of each task on the due date.
+          </p>
+          <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+            <button class="btn btn-primary" onclick="selectMode('auto')">➕ Schedule Another Crop</button>
+            <button class="btn btn-outline" onclick="scrollToTasks()">📋 View All My Tasks</button>
+          </div>
+        </div>
+
+      </div><!-- end auto-section -->
+
+
+      <!-- ══════════════════════════════════════
+           MANUAL SCHEDULE SECTION
+           Hidden until farmer clicks "Manual"
+      ══════════════════════════════════════ -->
+      <div id="manual-section" class="manual-section">
+        <div class="add-task-form">
+          <h4>✏️ Add a New Task</h4>
+
+          <!-- Task type selector — big icons -->
+          <div style="margin-bottom:16px">
+            <label style="display:block;font-size:13px;font-weight:700;color:#555;margin-bottom:10px">
+              What type of task is this?
+            </label>
+            <div class="task-types" id="task-type-selector">
+              <div class="task-type-btn selected" onclick="selectTaskType('spray','🌿 Spray',this)">
+                <div class="tt-icon">🌿</div>
+                <div class="tt-name">Spray</div>
+              </div>
+              <div class="task-type-btn" onclick="selectTaskType('water','💧 Water',this)">
+                <div class="tt-icon">💧</div>
+                <div class="tt-name">Water</div>
+              </div>
+              <div class="task-type-btn" onclick="selectTaskType('fertilize','🌾 Fertilize',this)">
+                <div class="tt-icon">🌾</div>
+                <div class="tt-name">Fertilize</div>
+              </div>
+              <div class="task-type-btn" onclick="selectTaskType('harvest','🌽 Harvest',this)">
+                <div class="tt-icon">🌽</div>
+                <div class="tt-name">Harvest</div>
+              </div>
+              <div class="task-type-btn" onclick="selectTaskType('inspect','🔍 Inspect',this)">
+                <div class="tt-icon">🔍</div>
+                <div class="tt-name">Inspect</div>
+              </div>
+              <div class="task-type-btn" onclick="selectTaskType('plant','🌱 Plant',this)">
+                <div class="tt-icon">🌱</div>
+                <div class="tt-name">Plant</div>
+              </div>
+              <div class="task-type-btn" onclick="selectTaskType('weed','🪓 Weed',this)">
+                <div class="tt-icon">🪓</div>
+                <div class="tt-name">Weed</div>
+              </div>
+              <div class="task-type-btn" onclick="selectTaskType('general','📌 Other',this)">
+                <div class="tt-icon">📌</div>
+                <div class="tt-name">Other</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Task Name (what must be done)</label>
+              <input type="text" id="m-title"
+                     placeholder="e.g. Spray Mancozeb on tomatoes">
+            </div>
+            <div class="form-group">
+              <label>Which Crop or Field?</label>
+              <input type="text" id="m-crop"
+                     placeholder="e.g. Tomatoes Field A">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>📅 Date this should be done</label>
+              <input type="date" id="m-date">
+            </div>
+            <div class="form-group">
+              <label>📝 Extra notes (optional)</label>
+              <input type="text" id="m-notes"
+                     placeholder="e.g. Use 2g per litre of water">
+            </div>
+          </div>
+
+          <button class="submit-big" id="add-task-btn" onclick="addManualTask()">
+            ➕ Add This Task to My Schedule
+          </button>
+        </div>
+      </div><!-- end manual-section -->
+
+
+      <!-- ══════════════════════════════════════
+           TASK LIST — shown always at bottom
+           Shows all tasks regardless of mode
+      ══════════════════════════════════════ -->
+      <div id="tasks-section">
+        <div class="section-hd">
+          <div>
+            <h3>📋 All My Tasks</h3>
+            <p>Tap ✅ Done when you finish a task</p>
+          </div>
+          <button onclick="clearAllTasks()"
+            style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;
+                   border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;
+                   background:transparent;border:1.5px solid #e24b4a;color:#a32d2d;
+                   transition:all 0.15s"
+            onmouseover="this.style.background='#fcebeb'"
+            onmouseout="this.style.background='transparent'">
+            🗑️ Clear All Tasks
+          </button>
+        </div>
+
+        <!-- Filter tabs -->
+        <div class="tab-row">
+          <button class="tab-btn active" onclick="filterTasks('all',this)">
+            All <span class="cnt" id="cnt-all">0</span>
+          </button>
+          <button class="tab-btn" onclick="filterTasks('overdue',this)">
+            ⚠️ Overdue <span class="cnt" id="cnt-overdue">0</span>
+          </button>
+          <button class="tab-btn" onclick="filterTasks('today',this)">
+            📅 Today <span class="cnt" id="cnt-today">0</span>
+          </button>
+          <button class="tab-btn" onclick="filterTasks('pending',this)">
+            ⏳ Upcoming <span class="cnt" id="cnt-pending">0</span>
+          </button>
+          <button class="tab-btn" onclick="filterTasks('done',this)">
+            ✅ Done <span class="cnt" id="cnt-done">0</span>
+          </button>
+        </div>
+
+        <div id="tasks-list">
+          <div class="spinner"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Toast notification -->
+<div class="toast" id="toast"></div>
+
+
+<script>
+  const API   = "http://localhost:8000";
+  const token = localStorage.getItem("agro_token");
+  if (!token) window.location.href = "../index.html";
+  const user = JSON.parse(localStorage.getItem("agro_user") || "{}");
+
+  document.getElementById("sb-name").textContent = user.name || "Farmer";
+  document.getElementById("sb-info").textContent =
+    (user.farmScale==="large"?"Large Scale":"Small Scale")+" · "+(user.county||"Kenya");
+  if (user.freePeriod) {
+    const b = document.getElementById("sb-badge");
+    b.textContent = "🎁 FREE — "+user.freeDaysLeft+" days left";
+    b.style.display = "inline-block";
+  }
+  function doLogout() {
+    localStorage.removeItem("agro_token");
+    localStorage.removeItem("agro_user");
+    window.location.href = "../index.html";
+  }
+
+  // ── State ──────────────────────────────
+  let allTasks        = [];
+  let currentFilter   = "all";
+  let selectedCropName= "";
+  let selectedCropIcon= "";
+  let selectedCropDays= 0;
+  let selectedTaskType= "spray";
+  let generatedTasks  = [];
+  let autoStep        = 0;
+
+  // Set today as default date for manual form
+  document.getElementById("m-date").value = new Date().toISOString().split("T")[0];
+  document.getElementById("auto-plant-date").value = new Date().toISOString().split("T")[0];
+
+
+  // ═══════════════════════════════════════
+  //  MODE SELECTOR
+  //  Shows/hides auto or manual section
+  // ═══════════════════════════════════════
+  function selectMode(mode) {
+    const autoCard   = document.getElementById("mode-auto-card");
+    const manualCard = document.getElementById("mode-manual-card");
+    const autoSec    = document.getElementById("auto-section");
+    const manualSec  = document.getElementById("manual-section");
+
+    autoCard.classList.remove("selected");
+    manualCard.classList.remove("selected");
+
+    if (mode === "auto") {
+      autoCard.classList.add("selected");
+      autoSec.style.display  = "block";
+      manualSec.style.display= "none";
+      goAutoStep(1);
+    } else {
+      manualCard.classList.add("selected");
+      manualSec.style.display = "block";
+      autoSec.style.display   = "none";
+    }
+
+    // Scroll to the section
+    document.getElementById(mode+"-section").scrollIntoView({behavior:"smooth",block:"start"});
+  }
+
+
+  // ═══════════════════════════════════════
+  //  AUTO SCHEDULE STEPS
+  // ═══════════════════════════════════════
+  function goAutoStep(step) {
+    autoStep = step;
+    // Hide all steps
+    [1,2,3,4].forEach(i => {
+      document.getElementById("auto-step"+i).style.display = "none";
+      const pill = document.getElementById("sp"+i);
+      pill.classList.remove("active","done");
+      if (i < step) pill.classList.add("done");
+    });
+    // Show current step
+    document.getElementById("auto-step"+step).style.display = "block";
+    document.getElementById("sp"+step).classList.add("active");
+
+    // If step 3, generate the schedule
+    if (step === 3) generateSchedule();
+  }
+
+  function selectCrop(name, icon, days) {
+    selectedCropName = name;
+    selectedCropIcon = icon;
+    selectedCropDays = days;
+    // Visual feedback
+    document.querySelectorAll(".crop-choice").forEach(c => c.classList.remove("selected"));
+    event.currentTarget.classList.add("selected");
+    // Move to step 2 after short delay
+    setTimeout(() => goAutoStep(2), 300);
+    document.getElementById("step2-title").textContent =
+      "Step 2 — When did you plant your "+name+"?";
+  }
+
+
+  // ═══════════════════════════════════════
+  //  GENERATE AUTO SCHEDULE
+  //  Creates tasks based on crop type and
+  //  planting date using farming knowledge
+  // ═══════════════════════════════════════
+  function generateSchedule() {
+    const plantDateStr = document.getElementById("auto-plant-date").value;
+    const field        = document.getElementById("auto-field").value || "Main Field";
+    const water        = document.getElementById("auto-water").value;
+
+    if (!plantDateStr) {
+      showToast("⚠️ Please enter a planting date first");
+      goAutoStep(2);
+      return;
+    }
+
+    const plant   = new Date(plantDateStr+"T00:00:00");
+    const addDays = (d) => {
+      const dt = new Date(plant.getTime() + d * 86400000);
+      return dt.toISOString().split("T")[0];
+    };
+
+    // ── CROP-SPECIFIC TASK TEMPLATES ────────────────
+    // Each crop has its own schedule based on real farming knowledge.
+    // Tasks include: when to water, spray, fertilize, inspect, harvest.
+    const templates = {
+
+      Tomato: [
+        {day:3,  type:"water",     title:"Water tomato seedlings",          why:"Seedlings need water to establish roots"},
+        {day:7,  type:"inspect",   title:"Inspect for pests and diseases",  why:"Early detection saves the crop"},
+        {day:10, type:"fertilize", title:"Apply DAP fertilizer",            why:"Gives seedlings nutrients to grow strong"},
+        {day:14, type:"spray",     title:"Spray Copper Oxychloride (preventive)", why:"Prevents early blight before it starts"},
+        {day:21, type:"water",     title:"Water tomatoes",                  why:"Regular watering for healthy growth"},
+        {day:21, type:"inspect",   title:"Check for leaf curl or yellowing", why:"Spot problems before they spread"},
+        {day:28, type:"fertilize", title:"Apply CAN fertilizer (top dress)", why:"Boosts growth at flowering stage"},
+        {day:28, type:"spray",     title:"Spray Mancozeb 80WP",             why:"Protects against fungal diseases"},
+        {day:35, type:"water",     title:"Water tomatoes",                  why:"Consistent moisture for fruit formation"},
+        {day:42, type:"spray",     title:"Spray Ridomil Gold (if rain expected)", why:"Prevents late blight in wet weather"},
+        {day:42, type:"inspect",   title:"Check for late blight symptoms",  why:"Late blight can destroy crop in 3 days"},
+        {day:49, type:"water",     title:"Water tomatoes",                  why:"Fruits forming — needs consistent moisture"},
+        {day:56, type:"spray",     title:"Spray Dithane M45 fungicide",     why:"Protects ripening fruits"},
+        {day:63, type:"inspect",   title:"Check fruit development and size", why:"Identify any nutrient deficiencies"},
+        {day:70, type:"weed",      title:"Weed around tomato plants",       why:"Weeds compete for nutrients and water"},
+        {day:85, type:"inspect",   title:"Check fruits are ready for harvest", why:"Tomatoes should be red and firm"},
+        {day:90, type:"harvest",   title:"🌽 HARVEST TOMATOES",             why:"90 days after planting — pick ripe fruits"},
+      ],
+
+      Maize: [
+        {day:3,  type:"water",     title:"Water newly planted maize",       why:"Seeds need moisture to germinate"},
+        {day:7,  type:"inspect",   title:"Check germination",               why:"At least 80% of seeds should have sprouted"},
+        {day:14, type:"fertilize", title:"Apply DAP basal fertilizer",      why:"Early nitrogen for strong leaf growth"},
+        {day:14, type:"weed",      title:"First weeding — remove all weeds", why:"Weeds at this stage reduce yield by 50%"},
+        {day:21, type:"water",     title:"Water maize",                     why:"Young plants need consistent moisture"},
+        {day:21, type:"inspect",   title:"Check for armyworm or stalk borer", why:"Common pest — check the base of stems"},
+        {day:28, type:"fertilize", title:"Apply CAN top dressing fertilizer", why:"Boosts growth at knee-high stage"},
+        {day:35, type:"weed",      title:"Second weeding",                  why:"Keep field clean before canopy closes"},
+        {day:42, type:"spray",     title:"Spray for fall armyworm if seen", why:"Armyworm can destroy crop overnight"},
+        {day:49, type:"inspect",   title:"Check tassels and silks forming", why:"This is the critical pollination stage"},
+        {day:56, type:"water",     title:"Water maize — silking stage",     why:"Silking needs water — lack causes poor cobs"},
+        {day:70, type:"inspect",   title:"Check cob filling",               why:"Cobs should feel firm and full"},
+        {day:90, type:"inspect",   title:"Check if maize is drying on stalk", why:"Husks should be brown and dry"},
+        {day:110, type:"inspect",  title:"Check moisture content of grains", why:"Grains should be hard when pressed"},
+        {day:120, type:"harvest",  title:"🌽 HARVEST MAIZE",                why:"120 days — cobs are mature and dry"},
+      ],
+
+      Potato: [
+        {day:3,  type:"water",     title:"Water potato seed pieces",        why:"Tubers need moisture to sprout"},
+        {day:10, type:"inspect",   title:"Check for emergence from soil",   why:"Shoots should appear within 2 weeks"},
+        {day:14, type:"fertilize", title:"Apply DAP fertilizer",            why:"Early nutrients for strong haulm growth"},
+        {day:14, type:"spray",     title:"Spray Mancozeb (early blight prevention)", why:"Potatoes are very prone to blight"},
+        {day:21, type:"water",     title:"Water potatoes",                  why:"Consistent watering prevents hollow heart"},
+        {day:21, type:"weed",      title:"Weed and earth up (hill up soil)", why:"Hilling protects developing tubers"},
+        {day:28, type:"spray",     title:"Spray Ridomil Gold MZ",           why:"Late blight prevention — critical stage"},
+        {day:28, type:"inspect",   title:"Check for late blight symptoms",  why:"Grey spots on leaves = late blight — act fast"},
+        {day:35, type:"fertilize", title:"Apply CAN fertilizer (top dress)", why:"Feeds the plant during tuber formation"},
+        {day:35, type:"water",     title:"Water potatoes",                  why:"Tuber formation needs regular moisture"},
+        {day:42, type:"spray",     title:"Spray Mancozeb 80WP",             why:"Continue disease protection"},
+        {day:49, type:"inspect",   title:"Check foliage health",            why:"Yellow leaves may indicate nutrient issues"},
+        {day:56, type:"water",     title:"Water potatoes",                  why:"Tubers still bulking up"},
+        {day:63, type:"spray",     title:"Final protective spray",          why:"Protects until harvest"},
+        {day:70, type:"inspect",   title:"Check if haulms (tops) are dying back", why:"Natural dying back means tubers are ready"},
+        {day:80, type:"water",     title:"Stop watering — let soil dry",    why:"Dry soil makes harvesting easier"},
+        {day:90, type:"harvest",   title:"🥔 HARVEST POTATOES",             why:"Dig carefully with a fork — check tuber size"},
+      ],
+
+      Cabbage: [
+        {day:3,  type:"water",     title:"Water cabbage seedlings",         why:"Seedlings need water to establish"},
+        {day:7,  type:"fertilize", title:"Apply DAP fertilizer",            why:"Early nutrients for leaf development"},
+        {day:14, type:"spray",     title:"Spray for aphids and caterpillars", why:"Cabbage butterfly lays eggs early"},
+        {day:14, type:"water",     title:"Water cabbages",                  why:"Regular watering for head formation"},
+        {day:21, type:"inspect",   title:"Check for diamondback moth caterpillars", why:"Tiny green caterpillars eat leaves"},
+        {day:28, type:"fertilize", title:"Apply CAN fertilizer (top dress)", why:"Boosts head size and weight"},
+        {day:28, type:"spray",     title:"Spray Karate insecticide (if pests seen)", why:"Stops caterpillars from destroying heads"},
+        {day:35, type:"water",     title:"Water cabbages",                  why:"Heads forming — needs consistent moisture"},
+        {day:42, type:"inspect",   title:"Check head formation and firmness", why:"Heads should feel tight and solid"},
+        {day:56, type:"weed",      title:"Weed around cabbage plants",      why:"Weeds reduce head size"},
+        {day:70, type:"inspect",   title:"Check if heads are ready — press top", why:"Firm when pressed = ready to harvest"},
+        {day:80, type:"harvest",   title:"🥬 HARVEST CABBAGE",              why:"Cut at base — heads should be solid and heavy"},
+      ],
+
+      Bean: [
+        {day:3,  type:"water",     title:"Water bean seeds",                why:"Beans germinate in 5-7 days with moisture"},
+        {day:7,  type:"inspect",   title:"Check germination",               why:"Beans should be sprouting"},
+        {day:14, type:"fertilize", title:"Apply small amount DAP",          why:"Beans fix nitrogen but need phosphorus early"},
+        {day:14, type:"weed",      title:"First weeding",                   why:"Weeds at this stage reduce yield by 40%"},
+        {day:21, type:"water",     title:"Water beans",                     why:"Consistent moisture for flower formation"},
+        {day:21, type:"inspect",   title:"Check for bean fly damage",       why:"Small black fly damages stems near soil"},
+        {day:28, type:"spray",     title:"Spray for bean fly if needed",    why:"Treat early before stems are destroyed"},
+        {day:35, type:"water",     title:"Water beans — flowering stage",   why:"Flowers dropping = water stress"},
+        {day:42, type:"inspect",   title:"Check pods forming",              why:"Pods should be green and straight"},
+        {day:50, type:"inspect",   title:"Check pod fill and maturity",     why:"Seeds should be plump inside pods"},
+        {day:60, type:"harvest",   title:"🫘 HARVEST BEANS",                why:"Pods are dry and papery — ready to pick"},
+      ],
+
+      default: [
+        {day:3,  type:"water",     title:"Water newly planted crop",        why:"All crops need water after planting"},
+        {day:7,  type:"inspect",   title:"Check for germination and pests", why:"Early inspection prevents bigger problems"},
+        {day:14, type:"fertilize", title:"Apply basal fertilizer (DAP)",    why:"Early nutrients for strong growth"},
+        {day:21, type:"water",     title:"Water your crop",                 why:"Regular watering for healthy growth"},
+        {day:28, type:"spray",     title:"Preventive fungicide spray",      why:"Prevents diseases before they start"},
+        {day:35, type:"weed",      title:"Weed the field",                  why:"Weeds steal nutrients from your crop"},
+        {day:42, type:"water",     title:"Water your crop",                 why:"Keep soil moist but not waterlogged"},
+        {day:49, type:"fertilize", title:"Top dress with CAN fertilizer",   why:"Mid-season boost for better yield"},
+        {day:56, type:"inspect",   title:"Check crop health and progress",  why:"Note any problems before harvest"},
+      ]
+    };
+
+    const taskList = templates[selectedCropName] || templates["default"];
+
+    // Only add watering tasks if irrigation is available
+    generatedTasks = taskList.filter(t => {
+      if (t.type === "water" && water === "rain") return false;
+      return true;
+    }).map((t, i) => ({
+      ...t,
+      date:      addDays(t.day),
+      cropName:  selectedCropName + " — " + field,
+      title:     t.title,
+      id:        "gen_" + i
+    }));
+
+    // Render preview
+    const preview = document.getElementById("schedule-preview");
+    const typeColors = {
+      water:"#e3f2fd",spray:"#e8f5e9",fertilize:"#fff8e1",
+      harvest:"#fce4ec",inspect:"#f3e5f5",weed:"#fff3e0",
+      plant:"#e8f5e9",general:"#f5f5f5"
+    };
+    const typeIcons = {
+      water:"💧",spray:"🌿",fertilize:"🌾",
+      harvest:"🌽",inspect:"🔍",weed:"🪓",
+      plant:"🌱",general:"📌"
+    };
+
+    preview.innerHTML = `
+      <h4>📋 ${generatedTasks.length} tasks created for your ${selectedCropName} ${selectedCropIcon}</h4>
+      <p style="font-size:13px;color:#888;margin-bottom:16px">
+        Planted: <strong>${new Date(plantDateStr+"T00:00:00").toLocaleDateString("en-KE",{day:"numeric",month:"long",year:"numeric"})}</strong>
+        · Field: <strong>${field}</strong>
+      </p>
+      ${generatedTasks.map(t => `
+        <div class="preview-task">
+          <div class="pt-icon" style="background:${typeColors[t.type]||'#f5f5f5'}">
+            ${typeIcons[t.type]||"📌"}
+          </div>
+          <div style="flex:1">
+            <div class="pt-title">${t.title}</div>
+            <div class="pt-date">
+              📅 ${new Date(t.date+"T00:00:00").toLocaleDateString("en-KE",{weekday:"short",day:"numeric",month:"short",year:"numeric"})}
+              · Day ${t.day} after planting
+            </div>
+            <div class="pt-why">💡 Why: ${t.why}</div>
+          </div>
+        </div>`).join("")}
+    `;
+  }
+
+
+  // ═══════════════════════════════════════
+  //  SAVE AUTO SCHEDULE TO BACKEND
+  // ═══════════════════════════════════════
+  async function saveAutoSchedule() {
+    const btn = document.getElementById("save-auto-btn");
+    btn.disabled    = true;
+    btn.textContent = "⏳ Saving tasks...";
+
+    try {
+      let saved = 0;
+      for (const t of generatedTasks) {
+        await fetch(API+"/tasks", {
+          method: "POST",
+          headers: {
+            "Content-Type":"application/json",
+            "Authorization":"Bearer "+token
+          },
+          body: JSON.stringify({
+            title:          t.title,
+            description:    "💡 " + t.why,
+            crop_name:      t.cropName,
+            task_type:      t.type,
+            scheduled_date: t.date
+          })
+        });
+        saved++;
+      }
+      goAutoStep(4);
+      loadTasks();
+      showToast("✅ "+saved+" tasks saved to your schedule!");
+    } catch(e) {
+      showToast("❌ Could not save tasks. Check backend is running.");
+      btn.disabled    = false;
+      btn.textContent = "✅ Save All Tasks to My Schedule";
+    }
+  }
+
+
+  // ═══════════════════════════════════════
+  //  TASK TYPE SELECTOR (manual)
+  // ═══════════════════════════════════════
+  function selectTaskType(type, label, el) {
+    selectedTaskType = type;
+    document.querySelectorAll(".task-type-btn").forEach(b => b.classList.remove("selected"));
+    el.classList.add("selected");
+  }
+
+
+  // ═══════════════════════════════════════
+  //  ADD MANUAL TASK
+  // ═══════════════════════════════════════
+  async function addManualTask() {
+    const title  = document.getElementById("m-title").value.trim();
+    const crop   = document.getElementById("m-crop").value.trim();
+    const date   = document.getElementById("m-date").value;
+    const notes  = document.getElementById("m-notes").value.trim();
+    const btn    = document.getElementById("add-task-btn");
+
+    if (!title) { showToast("⚠️ Please enter a task name"); return; }
+    if (!date)  { showToast("⚠️ Please choose a date");    return; }
+
+    btn.disabled    = true;
+    btn.textContent = "⏳ Adding task...";
+
+    try {
+      await fetch(API+"/tasks", {
+        method: "POST",
+        headers: {
+          "Content-Type":"application/json",
+          "Authorization":"Bearer "+token
+        },
+        body: JSON.stringify({
+          title:          title,
+          description:    notes,
+          crop_name:      crop,
+          task_type:      selectedTaskType,
+          scheduled_date: date
+        })
+      });
+      // Clear form
+      document.getElementById("m-title").value = "";
+      document.getElementById("m-crop").value  = "";
+      document.getElementById("m-notes").value = "";
+      document.getElementById("m-date").value  = new Date().toISOString().split("T")[0];
+
+      showToast("✅ Task added to your schedule!");
+      loadTasks();
+    } catch(e) {
+      showToast("❌ Could not add task. Check backend is running.");
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = "➕ Add This Task to My Schedule";
+    }
+  }
+
+
+  // ═══════════════════════════════════════
+  //  LOAD ALL TASKS FROM BACKEND
+  // ═══════════════════════════════════════
+  async function loadTasks() {
+    try {
+      const res = await fetch(API+"/tasks", {
+        headers: { "Authorization":"Bearer "+token }
+      });
+      allTasks = await res.json();
+      updateCounts();
+      renderTasks();
+      checkOverdue();
+    } catch(e) {
+      document.getElementById("tasks-list").innerHTML =
+        '<div class="empty"><div class="e-icon">❌</div><h3>Could not load tasks</h3><p>Make sure the backend is running</p></div>';
+    }
+  }
+
+  function updateCounts() {
+    const today = new Date().toISOString().split("T")[0];
+    document.getElementById("cnt-all").textContent     = allTasks.length;
+    document.getElementById("cnt-overdue").textContent = allTasks.filter(t=>t.overdue).length;
+    document.getElementById("cnt-today").textContent   = allTasks.filter(t=>!t.done&&t.scheduledDate===today).length;
+    document.getElementById("cnt-pending").textContent = allTasks.filter(t=>!t.done&&!t.overdue&&t.scheduledDate>today).length;
+    document.getElementById("cnt-done").textContent    = allTasks.filter(t=>t.done).length;
+  }
+
+  function checkOverdue() {
+    const overdue = allTasks.filter(t=>t.overdue);
+    const banner  = document.getElementById("overdue-banner");
+    if (overdue.length > 0) {
+      banner.style.display = "flex";
+      document.getElementById("overdue-count").textContent =
+        overdue.length + " task" + (overdue.length>1?"s are":" is") + " overdue!";
+    } else {
+      banner.style.display = "none";
+    }
+  }
+
+
+  // ═══════════════════════════════════════
+  //  FILTER AND RENDER TASKS
+  // ═══════════════════════════════════════
+  function filterTasks(f, btn) {
+    currentFilter = f;
+    document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    renderTasks();
+  }
+
+  function renderTasks() {
+    const today = new Date().toISOString().split("T")[0];
+    let tasks   = allTasks;
+
+    if (currentFilter==="overdue") tasks = allTasks.filter(t=>t.overdue);
+    if (currentFilter==="today")   tasks = allTasks.filter(t=>!t.done&&t.scheduledDate===today);
+    if (currentFilter==="pending") tasks = allTasks.filter(t=>!t.done&&!t.overdue&&t.scheduledDate>today);
+    if (currentFilter==="done")    tasks = allTasks.filter(t=>t.done);
+
+    const el = document.getElementById("tasks-list");
+
+    if (!tasks.length) {
+      const msgs = {
+        all:     ["📋","No tasks yet","Use Auto or Manual above to add your first task!"],
+        overdue: ["✅","No overdue tasks!","All your tasks are on track. Great work!"],
+        today:   ["📅","Nothing due today","Enjoy your day — no tasks scheduled for today"],
+        pending: ["⏳","No upcoming tasks","Schedule your next farming activity above"],
+        done:    ["✅","No completed tasks yet","Completed tasks will appear here"]
+      };
+      const [icon, title, sub] = msgs[currentFilter]||msgs.all;
+      el.innerHTML = `<div class="empty"><div class="e-icon">${icon}</div><h3>${title}</h3><p>${sub}</p></div>`;
+      return;
+    }
+
+    const typeIcons = {
+      water:"💧",spray:"🌿",fertilize:"🌾",harvest:"🌽",
+      inspect:"🔍",weed:"🪓",plant:"🌱",general:"📌"
+    };
+    const typeBg = {
+      water:"#e3f2fd",spray:"#e8f5e9",fertilize:"#fff8e1",harvest:"#fce4ec",
+      inspect:"#f3e5f5",weed:"#fff3e0",plant:"#e8f5e9",general:"#f5f5f5"
+    };
+
+    el.innerHTML = tasks.map(t => {
+      const isToday   = t.scheduledDate === today;
+      const itemClass = t.done?"done":t.overdue?"overdue":isToday?"today":"";
+      const dateStr   = new Date(t.scheduledDate+"T00:00:00").toLocaleDateString("en-KE",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+
+      let statusBadge = "";
+      if (t.done)         statusBadge = '<span class="status-badge sb-done">✅ Done</span>';
+      else if (t.overdue) statusBadge = '<span class="status-badge sb-overdue">🚨 Overdue — do this today!</span>';
+      else if (isToday)   statusBadge = '<span class="status-badge sb-today">⏰ Due Today</span>';
+      else                statusBadge = '<span class="status-badge sb-pending">⏳ Upcoming</span>';
+
+      const isAuto = t.description && t.description.startsWith("💡");
+
+      return `
+        <div class="task-item ${itemClass}">
+          <div class="task-body">
+            <div class="task-type-icon" style="background:${typeBg[t.taskType]||'#f5f5f5'}">
+              ${typeIcons[t.taskType]||"📌"}
+            </div>
+            <div class="task-info">
+              <div class="task-title">${t.title}</div>
+              <div class="task-crop">${t.cropName||"General farm task"}</div>
+              ${t.description && !t.description.startsWith("💡")
+                ? `<div style="font-size:12px;color:#888;margin-top:3px">${t.description}</div>`
+                : t.description
+                ? `<div style="font-size:12px;color:#52b788;margin-top:3px">${t.description}</div>`
+                : ""}
+              <div class="task-date-row">
+                ${statusBadge}
+                ${isAuto?'<span class="status-badge sb-auto">🤖 Auto-generated</span>':""}
+              </div>
+              <div style="margin-top:6px;display:flex;align-items:center;gap:6px">
+                <span style="font-size:13px;font-weight:700;color:#1a3d2b;
+                             background:#eaf3de;border:1px solid #a5d6a7;
+                             border-radius:6px;padding:4px 10px;display:inline-block">
+                  📅 ${dateStr}
+                </span>
+                <span style="font-size:11px;color:#aaa">
+                  (${t.scheduledDate})
+                </span>
+              </div>
+            </div>
+            <div class="task-actions">
+              ${!t.done
+                ? `<button class="ta-btn done-btn" onclick="markDone(${t.id})">✅ Done</button>`
+                : ""}
+              <button class="ta-btn del-btn" onclick="deleteTask(${t.id})">🗑️</button>
+            </div>
+          </div>
+        </div>`;
+    }).join("");
+  }
+
+
+  // ═══════════════════════════════════════
+  //  MARK TASK AS DONE
+  // ═══════════════════════════════════════
+  async function markDone(id) {
+    try {
+      await fetch(API+"/tasks/"+id, {
+        method:  "PUT",
+        headers: {"Content-Type":"application/json","Authorization":"Bearer "+token},
+        body:    JSON.stringify({done:true})
+      });
+      showToast("✅ Task marked as done! Great work!");
+      loadTasks();
+    } catch(e) { showToast("❌ Could not update task"); }
+  }
+
+
+  // ═══════════════════════════════════════
+  //  DELETE TASK
+  // ═══════════════════════════════════════
+  async function deleteTask(id) {
+    if (!confirm("Remove this task from your schedule?")) return;
+    try {
+      await fetch(API+"/tasks/"+id, {
+        method:"DELETE",
+        headers:{"Authorization":"Bearer "+token}
+      });
+      showToast("🗑️ Task removed");
+      loadTasks();
+    } catch(e) { showToast("❌ Could not delete task"); }
+  }
+
+
+  // ═══════════════════════════════════════
+  //  TOAST NOTIFICATION
+  // ═══════════════════════════════════════
+  function showToast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent  = msg;
+    t.style.display= "block";
+    setTimeout(() => { t.style.display="none"; }, 3000);
+  }
+
+  function scrollToTasks() {
+    document.getElementById("tasks-section").scrollIntoView({behavior:"smooth"});
+  }
+
+  // ═══════════════════════════════════════
+  //  CLEAR ALL TASKS
+  //  Deletes every single task for this farmer.
+  //  Shows a big confirmation first so farmer
+  //  does not accidentally delete everything.
+  // ═══════════════════════════════════════
+  async function clearAllTasks() {
+    if (allTasks.length === 0) {
+      showToast("⚠️ You have no tasks to clear");
+      return;
+    }
+
+    // Two-step confirmation — important so farmer does not
+    // accidentally delete everything with one wrong tap
+    const first = confirm(
+      "⚠️ WARNING\n\n" +
+      "This will DELETE ALL " + allTasks.length + " tasks from your schedule.\n\n" +
+      "This cannot be undone.\n\n" +
+      "Are you sure you want to continue?"
+    );
+    if (!first) return;
+
+    const second = confirm(
+      "🚨 FINAL WARNING\n\n" +
+      "You are about to permanently delete ALL your farm tasks.\n\n" +
+      "Click OK to delete everything.\n" +
+      "Click Cancel to keep your tasks."
+    );
+    if (!second) return;
+
+    // Show loading state
+    const clearBtn = document.querySelector("button[onclick='clearAllTasks()']");
+    if (clearBtn) { clearBtn.textContent = "⏳ Deleting..."; clearBtn.disabled = true; }
+
+    try {
+      // Delete every task one by one
+      let deleted = 0;
+      for (const task of allTasks) {
+        await fetch(API + "/tasks/" + task.id, {
+          method:  "DELETE",
+          headers: { "Authorization": "Bearer " + token }
+        });
+        deleted++;
+      }
+      allTasks = [];
+      updateCounts();
+      renderTasks();
+      checkOverdue();
+      showToast("✅ All " + deleted + " tasks cleared. Ready for a new schedule!");
+
+    } catch(e) {
+      showToast("❌ Could not clear all tasks. Try again.");
+    } finally {
+      if (clearBtn) { clearBtn.textContent = "🗑️ Clear All Tasks"; clearBtn.disabled = false; }
+    }
+  }
+
+
+  loadTasks();
+</script>
+<script src="../js/notifications.js"></script>
+</body>
+</html>
