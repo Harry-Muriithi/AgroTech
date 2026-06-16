@@ -11,7 +11,7 @@
 //    - A dropdown list when the bell is clicked
 // ═══════════════════════════════════════════════════════════
 
-const NOTIF_API = "http://localhost:8000";
+const NOTIF_API = "https://agrotech-production-4c2f.up.railway.app";
 
 
 // ═══════════════════════════════════════════════
