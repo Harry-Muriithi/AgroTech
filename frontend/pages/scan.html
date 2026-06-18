@@ -701,7 +701,32 @@
       });
       const data = await res.json();
       stopProgressAnimation();
-      if (!res.ok) { showError("Photo rejected by AI", data.detail||"Could not analyse this photo.", true); return; }
+      if (!res.ok) {
+        const msg = data.detail || "Could not analyse this photo.";
+
+        // Unknown crop — special friendly message
+        if (msg.toLowerCase().includes("unknown crop")) {
+          showError("Unknown Crop Detected 🌿", msg, false);
+          // Change error box color to amber (warning, not red)
+          document.getElementById("error-box").style.background = "#fff8e1";
+          document.getElementById("error-box").style.borderColor = "#ffe082";
+          document.getElementById("error-title").style.color = "#e65100";
+          document.getElementById("error-msg").style.color = "#5d4037";
+        }
+        // Low confidence — suggest better photo
+        else if (msg.toLowerCase().includes("low confidence") || msg.toLowerCase().includes("not certain")) {
+          showError("Uncertain Result ⚠️", msg, true);
+          document.getElementById("error-box").style.background = "#fff8e1";
+          document.getElementById("error-box").style.borderColor = "#ffe082";
+          document.getElementById("error-title").style.color = "#e65100";
+          document.getElementById("error-msg").style.color = "#5d4037";
+        }
+        // Normal error
+        else {
+          showError("Photo rejected by AI", msg, true);
+        }
+        return;
+      }
       showResult(data);
     } catch(e) {
       stopProgressAnimation();

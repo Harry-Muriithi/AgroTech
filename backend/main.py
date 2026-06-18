@@ -901,8 +901,18 @@ async def predict(
     # Run the AI model
     processed       = preprocess_image(image)
     predictions     = model.predict(processed, verbose=0)
-    predicted_index = int(np.argmax(predictions[0]))   # index of highest confidence class
+    predicted_index = int(np.argmax(predictions[0]))
     confidence      = float(np.max(predictions[0])) * 100
+
+    # Get TOP 3 predictions for possible disease suggestions
+    top3_indices = predictions[0].argsort()[-3:][::-1]
+    top3 = [
+        {
+            "label": labels[i].replace("___", " — ").replace("_", " "),
+            "confidence": round(float(predictions[0][i]) * 100, 1)
+        }
+        for i in top3_indices
+    ]
 
     # Reject if confidence is too low (blurry/dark photo)
     if confidence < 60.0:
@@ -917,6 +927,61 @@ async def predict(
     parts      = disease_label.split("___")
     plant_name = parts[0] if len(parts) > 1 else "Unknown"
     condition  = parts[1] if len(parts) > 1 else disease_label
+
+    # ── UNKNOWN CROP DETECTION ────────────────────────────────────
+    # The model is trained on specific crops only:
+    # Tomato, Potato, Apple, Corn, Grape, Pepper, etc.
+    # If a farmer scans a pumpkin, mango, avocado etc., the model
+    # still forces it into the nearest trained class — which is WRONG.
+    #
+    # We detect this by checking:
+    # 1. If confidence is below 85% → uncertain, show possible diseases only
+    # 2. If all top-3 predictions are from DIFFERENT crops → crop is unknown
+    #
+    KNOWN_CROPS = {
+        "tomato", "potato", "apple", "corn", "maize", "grape",
+        "pepper", "cherry", "peach", "strawberry", "squash",
+        "raspberry", "soybean", "blueberry", "orange", "rice", "wheat"
+    }
+
+    # Check if top 3 predictions disagree on the crop (sign of unknown crop)
+    top3_crops = set()
+    for i in top3_indices:
+        lbl = labels[i].split("___")[0].lower().replace("_", " ")
+        top3_crops.add(lbl)
+
+    crop_is_known = plant_name.lower().replace("_", " ") in KNOWN_CROPS
+    predictions_disagree = len(top3_crops) >= 3  # all top3 are different crops
+    confidence_uncertain = confidence < 85.0
+
+    # If crop looks unknown OR model is very uncertain
+    if not crop_is_known or (predictions_disagree and confidence_uncertain):
+        # Return "unknown crop" with possible disease suggestions
+        possible = [t["label"] for t in top3]
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Unknown crop detected — this crop is not in our training database. "
+                f"The AI cannot give a reliable diagnosis. "
+                f"Possible disease patterns detected: {', '.join(possible)}. "
+                f"Please consult your local agricultural extension officer for this crop."
+            )
+        )
+
+    # If confidence is between 60-85% — uncertain prediction
+    if confidence < 85.0:
+        possible = [t["label"] for t in top3]
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Low confidence prediction ({confidence:.1f}%) — the AI is not certain enough. "
+                f"Possible diseases detected: {', '.join(possible)}. "
+                f"Try a clearer, closer photo in good lighting."
+            )
+        )
+
+    # ── HIGH CONFIDENCE KNOWN CROP ────────────────────────────────
+    # Only reach here if: confidence >= 85% AND crop is in training set
 
     # Look up treatment info
     info = get_disease_info(condition)
