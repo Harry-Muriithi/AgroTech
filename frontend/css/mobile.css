@@ -1,0 +1,157 @@
+/* ═══════════════════════════════════════════════════
+   AGROTECH MOBILE RESPONSIVE CSS
+   Same colors, same design — just fits any screen size.
+   ═══════════════════════════════════════════════════ */
+
+/* ── HAMBURGER BUTTON (only shows on mobile) ── */
+.hamburger {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  flex-direction: column;
+  gap: 5px;
+  margin-right: 12px;
+}
+.hamburger span {
+  display: block;
+  width: 24px;
+  height: 2.5px;
+  background: #1a3d2b;
+  border-radius: 3px;
+  transition: all 0.3s;
+}
+
+/* ── OVERLAY (dark background when sidebar is open on mobile) ── */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 99;
+}
+.sidebar-overlay.show { display: block; }
+
+/* ════════════════════════
+   TABLET (max 1024px)
+   ════════════════════════ */
+@media (max-width: 1024px) {
+  .stats-row  { grid-template-columns: repeat(2,1fr) !important; }
+  .two-col    { grid-template-columns: 1fr !important; }
+  .three-col  { grid-template-columns: 1fr 1fr !important; }
+  .charts-row { grid-template-columns: 1fr !important; }
+  .plans-grid { grid-template-columns: 1fr !important; }
+  .form-grid  { grid-template-columns: 1fr !important; }
+  .form-grid.three { grid-template-columns: 1fr 1fr !important; }
+}
+
+/* ════════════════════════
+   MOBILE (max 768px)
+   ════════════════════════ */
+@media (max-width: 768px) {
+
+  /* Sidebar slides off screen, opens with hamburger */
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    z-index: 100;
+  }
+  .sidebar.open { transform: translateX(0); }
+
+  /* Main takes full width */
+  .main { margin-left: 0 !important; }
+
+  /* Show hamburger button */
+  .hamburger { display: flex; }
+
+  /* Topbar */
+  .topbar { padding: 12px 16px !important; }
+  .topbar h2 { font-size: 16px !important; }
+
+  /* Body padding */
+  .body { padding: 14px 14px !important; }
+
+  /* Stats — 2 columns */
+  .stats-row {
+    grid-template-columns: repeat(2,1fr) !important;
+    gap: 10px !important;
+  }
+  .stat-card { padding: 12px 14px !important; }
+  .stat-card .s-val { font-size: 22px !important; }
+
+  /* All grids — single column */
+  .two-col,
+  .three-col,
+  .charts-row,
+  .account-stats { grid-template-columns: 1fr !important; gap: 10px !important; }
+
+  .form-grid,
+  .form-grid.three { grid-template-columns: 1fr !important; }
+
+  /* Weather bar wraps */
+  .weather-bar { flex-wrap: wrap; gap: 10px; padding: 14px !important; }
+  .w-stats { margin-left: 0 !important; width: 100%; justify-content: space-between; }
+
+  /* Grids */
+  .inv-grid     { grid-template-columns: 1fr !important; }
+  .history-grid { grid-template-columns: 1fr !important; }
+  .scan-grid    { grid-template-columns: 1fr !important; }
+  .result-grid  { grid-template-columns: 1fr !important; }
+  .plans-grid   { grid-template-columns: 1fr !important; }
+
+  /* Category pickers */
+  .cat-picker  { grid-template-columns: repeat(3,1fr) !important; }
+  .crop-picker { grid-template-columns: repeat(3,1fr) !important; }
+
+  /* Profit */
+  .type-toggle { flex-direction: column; gap: 8px; }
+  .ps-value    { font-size: 32px !important; }
+  .ps-bottom   { grid-template-columns: 1fr 1fr !important; }
+
+  /* Profile */
+  .profile-header { flex-direction: column; text-align: center; }
+  .profile-tags   { justify-content: center; }
+
+  /* Modal */
+  .modal-box {
+    margin: 10px;
+    max-width: calc(100vw - 20px) !important;
+  }
+
+  /* Toast — full width */
+  .toast {
+    left: 14px !important;
+    right: 14px !important;
+    bottom: 14px !important;
+    text-align: center;
+  }
+
+  /* Buttons */
+  .btn { padding: 7px 12px !important; font-size: 12px !important; }
+
+  /* Actions row */
+  .actions-row {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px 14px !important;
+  }
+  .actions-row .btn {
+    flex: 1;
+    min-width: 120px;
+    justify-content: center;
+  }
+
+  /* Subscription countdown */
+  .countdown-row { gap: 8px; }
+  .cb-number { font-size: 28px !important; }
+}
+
+/* ════════════════════════
+   VERY SMALL (max 400px)
+   ════════════════════════ */
+@media (max-width: 400px) {
+  .stats-row   { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+  .cat-picker  { grid-template-columns: repeat(2,1fr) !important; }
+  .crop-picker { grid-template-columns: repeat(2,1fr) !important; }
+}

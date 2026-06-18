@@ -180,12 +180,14 @@
     .faq-a{padding:0 20px;font-size:13px;color:#666;line-height:1.7;max-height:0;overflow:hidden;transition:all 0.25s}
     .faq-item.open .faq-a{padding:0 20px 16px;max-height:300px}
   </style>
+  <link rel="stylesheet" href="../css/mobile.css">
 </head>
 <body>
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
 <div class="shell">
 
   <!-- SIDEBAR -->
-  <aside class="sidebar">
+  <aside class="sidebar" id="sidebar">
     <div class="sb-logo"><h1>🌿 Agro<span>Tech</span></h1><p>Smart Farming · Kenya</p></div>
     <div class="sb-user">
       <div class="name" id="sb-name">Loading...</div>
@@ -210,6 +212,7 @@
   <!-- MAIN -->
   <div class="main">
     <div class="topbar">
+      <button class="hamburger" id="hamburger" onclick="toggleSidebar()" aria-label="Menu"><span></span><span></span><span></span></button>
       <div>
         <h2>⭐ Subscription</h2>
         <p>Your plan details and upgrade options</p>

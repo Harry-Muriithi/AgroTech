@@ -297,4 +297,12 @@ document.addEventListener("DOMContentLoaded", function() {
   injectNotificationBell();
   loadNotifications();
   setInterval(loadNotifications, 60000);
+
+  // Close sidebar when clicking anywhere on main content on mobile
+  document.querySelector(".main")?.addEventListener("click", function() {
+    if (window.innerWidth <= 768) {
+      document.getElementById("sidebar")?.classList.remove("open");
+      document.getElementById("sidebar-overlay")?.classList.remove("show");
+    }
+  });
 });

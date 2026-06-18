@@ -95,6 +95,7 @@
     .spinner{width:22px;height:22px;border:3px solid #d5e8da;border-top-color:#52b788;border-radius:50%;animation:spin 0.7s linear infinite;margin:20px auto}
     @keyframes spin{to{transform:rotate(360deg)}}
   </style>
+  <link rel="stylesheet" href="../css/mobile.css">
 </head>
 <body>
 <div class="shell">
@@ -361,5 +362,21 @@
   loadStats(); loadTasks(); loadInventory(); loadDiseases(); loadWeather();
 </script>
 <script src="../js/notifications.js"></script>
+<script>
+  function toggleSidebar() {
+    document.getElementById("sidebar").classList.toggle("open");
+    document.getElementById("sidebar-overlay").classList.toggle("show");
+  }
+  function closeSidebar() {
+    document.getElementById("sidebar").classList.remove("open");
+    document.getElementById("sidebar-overlay").classList.remove("show");
+  }
+  // Close sidebar when a nav link is clicked on mobile
+  document.querySelectorAll(".sb-nav a").forEach(a => {
+    a.addEventListener("click", () => {
+      if (window.innerWidth <= 768) closeSidebar();
+    });
+  });
+</script>
 </body>
 </html>

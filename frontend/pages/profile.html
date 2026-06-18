@@ -164,12 +164,14 @@
     .danger-zone{border:1.5px solid #f09595;background:#fffafa}
     .danger-zone h4{color:#a32d2d}
   </style>
+  <link rel="stylesheet" href="../css/mobile.css">
 </head>
 <body>
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
 <div class="shell">
 
   <!-- SIDEBAR -->
-  <aside class="sidebar">
+  <aside class="sidebar" id="sidebar">
     <div class="sb-logo"><h1>🌿 Agro<span>Tech</span></h1><p>Smart Farming · Kenya</p></div>
     <div class="sb-user">
       <div class="name" id="sb-name">Loading...</div>
@@ -194,6 +196,7 @@
   <!-- MAIN -->
   <div class="main">
     <div class="topbar">
+      <button class="hamburger" id="hamburger" onclick="toggleSidebar()" aria-label="Menu"><span></span><span></span><span></span></button>
       <div>
         <h2>👤 Profile</h2>
         <p>Manage your account and farm details</p>
