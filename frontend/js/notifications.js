@@ -15,6 +15,27 @@ const NOTIF_API = "https://agrotech-production-4c2f.up.railway.app";
 
 
 // ═══════════════════════════════════════════════
+//  SIDEBAR TOGGLE  (shared by all pages)
+// ═══════════════════════════════════════════════
+function toggleSidebar(){
+  document.getElementById("sidebar")?.classList.toggle("open");
+  document.getElementById("sidebar-overlay")?.classList.toggle("show");
+}
+function closeSidebar(){
+  document.getElementById("sidebar")?.classList.remove("open");
+  document.getElementById("sidebar-overlay")?.classList.remove("show");
+}
+// Close the menu after tapping a nav link on mobile
+document.addEventListener("DOMContentLoaded", function(){
+  document.querySelectorAll(".sb-nav a").forEach(function(a){
+    a.addEventListener("click", function(){
+      if (window.innerWidth <= 768) closeSidebar();
+    });
+  });
+});
+
+
+// ═══════════════════════════════════════════════
 //  INJECT BELL ICON INTO TOPBAR
 // ═══════════════════════════════════════════════
 function injectNotificationBell() {
@@ -297,12 +318,4 @@ document.addEventListener("DOMContentLoaded", function() {
   injectNotificationBell();
   loadNotifications();
   setInterval(loadNotifications, 60000);
-
-  // Close sidebar when clicking anywhere on main content on mobile
-  document.querySelector(".main")?.addEventListener("click", function() {
-    if (window.innerWidth <= 768) {
-      document.getElementById("sidebar")?.classList.remove("open");
-      document.getElementById("sidebar-overlay")?.classList.remove("show");
-    }
-  });
 });
