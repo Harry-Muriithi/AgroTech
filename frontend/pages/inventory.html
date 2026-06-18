@@ -194,7 +194,19 @@
     /* Toast */
     .toast{position:fixed;bottom:24px;right:24px;background:#1a3d2b;color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,0.2);z-index:999;display:none;animation:slideIn 0.3s ease}
     @keyframes slideIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
-  </style>
+  
+    /* ===== Mobile sidebar (responsive) ===== */
+    .hamburger{display:none;flex-direction:column;justify-content:center;gap:5px;width:42px;height:42px;background:none;border:none;cursor:pointer;padding:9px;margin-right:6px}
+    .hamburger span{display:block;height:3px;width:100%;background:#1a3d2b;border-radius:3px;transition:all .2s}
+    .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99}
+    .sidebar-overlay.show{display:block}
+    @media (max-width:768px){
+      .sidebar{transform:translateX(-100%);transition:transform .25s ease;box-shadow:2px 0 18px rgba(0,0,0,.25)}
+      .sidebar.open{transform:translateX(0)}
+      .main{margin-left:0}
+      .hamburger{display:flex}
+    }
+</style>
   <link rel="stylesheet" href="../css/mobile.css">
 </head>
 <body>
@@ -772,5 +784,20 @@
   loadInventory();
 </script>
 <script src="../js/notifications.js"></script>
+
+<script>
+  /* ===== Mobile sidebar toggle ===== */
+  function toggleSidebar(){
+    document.getElementById("sidebar").classList.toggle("open");
+    document.getElementById("sidebar-overlay").classList.toggle("show");
+  }
+  function closeSidebar(){
+    document.getElementById("sidebar").classList.remove("open");
+    document.getElementById("sidebar-overlay").classList.remove("show");
+  }
+  document.querySelectorAll(".sb-nav a").forEach(function(a){
+    a.addEventListener("click", function(){ if(window.innerWidth <= 768) closeSidebar(); });
+  });
+</script>
 </body>
 </html>

@@ -94,7 +94,19 @@
     .empty .e-icon{font-size:28px;margin-bottom:6px}
     .spinner{width:22px;height:22px;border:3px solid #d5e8da;border-top-color:#52b788;border-radius:50%;animation:spin 0.7s linear infinite;margin:20px auto}
     @keyframes spin{to{transform:rotate(360deg)}}
-  </style>
+  
+    /* ===== Mobile sidebar (responsive) ===== */
+    .hamburger{display:none;flex-direction:column;justify-content:center;gap:5px;width:42px;height:42px;background:none;border:none;cursor:pointer;padding:9px;margin-right:6px}
+    .hamburger span{display:block;height:3px;width:100%;background:#1a3d2b;border-radius:3px;transition:all .2s}
+    .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99}
+    .sidebar-overlay.show{display:block}
+    @media (max-width:768px){
+      .sidebar{transform:translateX(-100%);transition:transform .25s ease;box-shadow:2px 0 18px rgba(0,0,0,.25)}
+      .sidebar.open{transform:translateX(0)}
+      .main{margin-left:0}
+      .hamburger{display:flex}
+    }
+</style>
   <link rel="stylesheet" href="../css/mobile.css">
 </head>
 <body>
@@ -120,6 +132,8 @@
       <button class="logout-btn" onclick="doLogout()">🚪 Log out</button>
     </div>
   </aside>
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
 
   <div class="main">
     <div class="topbar">
