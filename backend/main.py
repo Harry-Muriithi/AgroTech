@@ -6,7 +6,7 @@
 
 # ── IMPORTS ──────────────────────────────────────────────
 # These are Python libraries we need. Like tools in a toolbox.
-from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, Request
+from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, Request, BackgroundTasks
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 import logging, time
@@ -1496,7 +1496,7 @@ Smart Farming Platform · Kenya
     msg["To"]      = to_email
 
     # Connect to Gmail's SMTP server and send the email
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as server:
         server.login(GMAIL_SENDER, GMAIL_APP_PASSWORD)
         server.sendmail(GMAIL_SENDER, to_email, msg.as_string())
 
@@ -1511,7 +1511,7 @@ class ResetPasswordRequest(BaseModel):
 
 
 @app.post("/auth/forgot-password")
-def forgot_password(req: ForgotPasswordRequest, request: Request, db: Session = Depends(get_db)):
+def forgot_password(req: ForgotPasswordRequest, request: Request, background: BackgroundTasks, db: Session = Depends(get_db)):
     rate_limit(request, "forgot", max_calls=4, window_sec=60)
     """
     Step 1 of password reset.
@@ -1545,15 +1545,9 @@ def forgot_password(req: ForgotPasswordRequest, request: Request, db: Session = 
     farmer.reset_expires = datetime.utcnow() + timedelta(minutes=15)
     db.commit()
 
-    try:
-        send_reset_email(farmer.email, code, farmer.name)
-    except Exception as e:
-        # Email failed to send — give a clear message
-        raise HTTPException(
-            status_code=502,
-            detail=f"Account found but could not send email. "
-                   f"Please check your internet and try again. (Error: {str(e)[:80]})"
-        )
+    # Send the email in the BACKGROUND so the app responds instantly.
+    # The farmer no longer waits for Gmail's SMTP server to finish.
+    background.add_task(send_reset_email, farmer.email, code, farmer.name)
 
     return {
         "success": True,
