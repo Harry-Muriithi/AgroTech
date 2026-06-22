@@ -1464,8 +1464,10 @@ from email.mime.text import MIMEText
 # GMAIL_APP_PASSWORD is the 16-character App Password
 # (NOT the normal Gmail password) generated at
 # https://myaccount.google.com/apppasswords
-GMAIL_SENDER       = "harunmuriithi542@gmail.com"
-GMAIL_APP_PASSWORD = "crmvkzupntwhgmdv"   # spaces removed
+# Credentials now come from Railway environment variables (Variables tab).
+# Never hardcode the password again — exposed Gmail App Passwords get revoked.
+GMAIL_SENDER       = os.getenv("GMAIL_SENDER", "harunmuriithi542@gmail.com")
+GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
 
 
 def send_reset_email(to_email: str, code: str, name: str):
@@ -1495,10 +1497,18 @@ Smart Farming Platform · Kenya
     msg["From"]    = GMAIL_SENDER
     msg["To"]      = to_email
 
+    if not GMAIL_APP_PASSWORD:
+        logger.error("GMAIL_APP_PASSWORD is not set — cannot send reset email to %s", to_email)
+        return
+
     # Connect to Gmail's SMTP server and send the email
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as server:
-        server.login(GMAIL_SENDER, GMAIL_APP_PASSWORD)
-        server.sendmail(GMAIL_SENDER, to_email, msg.as_string())
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as server:
+            server.login(GMAIL_SENDER, GMAIL_APP_PASSWORD)
+            server.sendmail(GMAIL_SENDER, to_email, msg.as_string())
+        logger.info("Reset email sent to %s", to_email)
+    except Exception as e:
+        logger.error("Failed to send reset email to %s: %s", to_email, e)
 
 
 class ForgotPasswordRequest(BaseModel):
