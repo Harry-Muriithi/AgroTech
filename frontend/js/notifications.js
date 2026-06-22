@@ -13,6 +13,14 @@
 
 const NOTIF_API = "https://agrotech-production-4c2f.up.railway.app";
 
+// Escape user text before putting it in innerHTML (XSS protection).
+// Falls back to a local copy if app.js hasn't defined the shared one.
+const esc = (window.escapeHtml) ? window.escapeHtml : function (v) {
+  if (v === null || v === undefined) return "";
+  return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+                  .replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+};
+
 
 // ═══════════════════════════════════════════════
 //  SIDEBAR TOGGLE  (shared by all pages)
@@ -155,8 +163,8 @@ async function loadNotifications() {
       overdue.forEach(t => {
         notifications.push({
           icon: "🚨", type: "danger",
-          title: "Overdue: " + t.title,
-          sub: (t.cropName ? t.cropName+" · " : "") + "Was due " + formatDate(t.scheduledDate),
+          title: "Overdue: " + esc(t.title),
+          sub: (t.cropName ? esc(t.cropName)+" · " : "") + "Was due " + formatDate(t.scheduledDate),
           link: "schedule.html"
         });
       });
@@ -164,8 +172,8 @@ async function loadNotifications() {
       dueToday.forEach(t => {
         notifications.push({
           icon: "⏰", type: "warn",
-          title: "Due today: " + t.title,
-          sub: (t.cropName ? t.cropName+" · " : "") + "Scheduled for today",
+          title: "Due today: " + esc(t.title),
+          sub: (t.cropName ? esc(t.cropName)+" · " : "") + "Scheduled for today",
           link: "schedule.html"
         });
       });
@@ -185,8 +193,8 @@ async function loadNotifications() {
       out.forEach(i => {
         notifications.push({
           icon: "🚨", type: "danger",
-          title: "Out of stock: " + i.name,
-          sub: "You have 0 " + i.unit + " left",
+          title: "Out of stock: " + esc(i.name),
+          sub: "You have 0 " + esc(i.unit) + " left",
           link: "inventory.html"
         });
       });
@@ -194,8 +202,8 @@ async function loadNotifications() {
       low.forEach(i => {
         notifications.push({
           icon: "⚠️", type: "warn",
-          title: "Low stock: " + i.name,
-          sub: i.quantity + " " + i.unit + " left (alert at " + i.lowAt + ")",
+          title: "Low stock: " + esc(i.name),
+          sub: i.quantity + " " + esc(i.unit) + " left (alert at " + i.lowAt + ")",
           link: "inventory.html"
         });
       });

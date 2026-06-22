@@ -1,0 +1,33 @@
+# ═══════════════════════════════════════════════════════════
+#  AGROTECH NETLIFY CONFIG  —  netlify.toml
+#  Place this at the ROOT of the repo (next to your frontend folder).
+#  If your Netlify "publish directory" is the frontend folder, set it here too.
+# ═══════════════════════════════════════════════════════════
+
+[build]
+  publish = "frontend"
+
+# ── Security headers on every page ──────────────────────────
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(self), camera=(self), microphone=()"
+    # CSP allows your own files + inline scripts/styles (the app uses many),
+    # plus network calls to the Railway backend and the open-meteo weather API.
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://agrotech-production-4c2f.up.railway.app https://api.open-meteo.com; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+
+# ── Service worker must be served fresh and allowed root scope ──
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+    Service-Worker-Allowed = "/"
+
+# ── Long-cache static assets (icons, css, js are versioned by SW) ──
+[[headers]]
+  for = "/icons/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"

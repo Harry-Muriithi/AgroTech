@@ -6,7 +6,11 @@
 
 # ── IMPORTS ──────────────────────────────────────────────
 # These are Python libraries we need. Like tools in a toolbox.
-from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
+from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, Request
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
+import logging, time
+from collections import defaultdict
 from fastapi.middleware.cors import CORSMiddleware   # allows frontend to talk to backend
 from fastapi.responses import FileResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -338,12 +342,60 @@ app = FastAPI(
 # CORS = Cross-Origin Resource Sharing
 # This allows your frontend (port 3000) to talk to the backend (port 8000).
 # Without this, the browser blocks all requests between different ports.
+# Only allow our own frontend + local development to call the API.
+ALLOWED_ORIGINS = [
+    "https://agrotech-kenya.netlify.app",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5500",
+    "http://127.0.0.1:5500",
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],    # allow ALL origins (fine for development)
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── Logging ───────────────────────────────────────────────
+logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)s  %(message)s")
+logger = logging.getLogger("agrotech")
+
+# ── Security headers on every response ────────────────────
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
+# ── Simple in-memory rate limiter ─────────────────────────
+# Tracks recent request timestamps per client IP per bucket.
+# NOTE: resets on redeploy and is per-process — fine for this scale.
+_rate_hits = defaultdict(list)
+def rate_limit(request: Request, bucket: str, max_calls: int, window_sec: int):
+    ip = (request.client.host if request.client else "unknown")
+    key = bucket + ":" + ip
+    now = time.time()
+    hits = [t for t in _rate_hits[key] if now - t < window_sec]
+    if len(hits) >= max_calls:
+        raise HTTPException(status_code=429,
+            detail="Too many attempts. Please wait a minute and try again.")
+    hits.append(now)
+    _rate_hits[key] = hits
+
+# ── Catch-all error handlers (nothing fails silently) ─────
+@app.exception_handler(StarletteHTTPException)
+async def http_exc_handler(request: Request, exc: StarletteHTTPException):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+@app.exception_handler(Exception)
+async def unhandled_exc_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled error on %s %s", request.method, request.url.path)
+    return JSONResponse(status_code=500,
+        content={"detail": "Something went wrong on our end. Please try again shortly."})
 
 
 # ═══════════════════════════════════════════════════════════
@@ -764,7 +816,8 @@ def health():
 # ── AUTH ENDPOINTS ────────────────────────────────────────
 
 @app.post("/auth/register")
-def register(req: RegisterRequest, db: Session = Depends(get_db)):
+def register(req: RegisterRequest, request: Request, db: Session = Depends(get_db)):
+    rate_limit(request, "register", max_calls=5, window_sec=60)
     """
     Creates a new farmer account.
     Called when a farmer clicks "Create My Farm Account".
@@ -800,7 +853,8 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
 
 
 @app.post("/auth/login")
-def login(req: LoginRequest, db: Session = Depends(get_db)):
+def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
+    rate_limit(request, "login", max_calls=8, window_sec=60)
     """
     Checks phone OR email + password, returns a token if correct.
     Called when farmer clicks "Login to AgroTech".
@@ -862,10 +916,12 @@ def update_profile(
 
 @app.post("/predict")
 async def predict(
+    request: Request,
     file:   UploadFile       = File(...),
     db:     Session          = Depends(get_db),
     farmer: Optional[Farmer] = Depends(get_optional_farmer)
 ):
+    rate_limit(request, "predict", max_calls=20, window_sec=60)
     """
     THE MAIN AI ENDPOINT.
     Farmer uploads a photo → AI analyses it → returns disease info.
@@ -1455,7 +1511,8 @@ class ResetPasswordRequest(BaseModel):
 
 
 @app.post("/auth/forgot-password")
-def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
+def forgot_password(req: ForgotPasswordRequest, request: Request, db: Session = Depends(get_db)):
+    rate_limit(request, "forgot", max_calls=4, window_sec=60)
     """
     Step 1 of password reset.
     Farmer enters their email. We check if it exists and send a code.

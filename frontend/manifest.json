@@ -1,0 +1,16 @@
+{
+  "name": "AgroTech Kenya — Smart Farming",
+  "short_name": "AgroTech",
+  "description": "AI crop disease detection and farm management for Kenyan farmers.",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f0f4f1",
+  "theme_color": "#1a3d2b",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
