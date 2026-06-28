@@ -4,18 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#1a3d2b">
-<title>AgroTech — Admin Dashboard</title>
+<title>AgroTech — Admin</title>
 <style>
   :root{
     --forest:#1a3d2b; --mid:#2d6a4f; --green:#52b788; --leaf:#eaf3de;
     --bg:#f0f4f1; --card:#ffffff; --line:#d5e8da; --ink:#20302a; --muted:#6a7c72;
-    --red:#e24b4a; --red-bg:#fcebeb; --amber:#f4a261;
+    --red:#e24b4a; --red-bg:#fcebeb;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:var(--bg);color:var(--ink);
     font-family:'Segoe UI',system-ui,-apple-system,sans-serif;line-height:1.5}
-
-  /* top bar */
   .topbar{background:var(--forest);color:#fff;padding:14px 22px;display:flex;
     align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
   .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px}
@@ -26,124 +24,144 @@
     text-decoration:none;padding:8px 14px;border-radius:9px;border:1px solid rgba(255,255,255,.25);
     background:transparent;color:#fff;transition:background .15s}
   .top-actions a:hover,.top-actions button:hover{background:rgba(255,255,255,.12)}
-
   .wrap{max-width:1080px;margin:0 auto;padding:24px 22px 80px}
   h1{font-size:22px;color:var(--forest);margin-bottom:2px}
   .sub{color:var(--muted);font-size:13px;margin-bottom:22px}
-
-  /* states */
+  .hidden{display:none}
+  .login-screen{min-height:78vh;display:flex;align-items:center;justify-content:center;padding:20px}
+  .login-card{background:var(--card);border:1px solid var(--line);border-radius:16px;
+    padding:34px 30px;width:100%;max-width:380px;box-shadow:0 8px 30px rgba(0,0,0,.06)}
+  .login-card .leaf{font-size:40px;text-align:center}
+  .login-card h2{text-align:center;color:var(--forest);font-size:20px;margin:8px 0 4px}
+  .login-card .p{text-align:center;color:var(--muted);font-size:13px;margin-bottom:22px}
+  .login-card label{display:block;font-size:12px;font-weight:700;color:var(--mid);
+    text-transform:uppercase;letter-spacing:.4px;margin:14px 0 5px}
+  .login-card input{width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:10px;
+    font:inherit;font-size:14px}
+  .login-card input:focus{outline:none;border-color:var(--green)}
+  .login-card button{width:100%;margin-top:22px;padding:12px;background:var(--forest);color:#fff;
+    border:none;border-radius:10px;font:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s}
+  .login-card button:hover{background:var(--mid)}
+  .login-card button:disabled{opacity:.6;cursor:default}
+  .err{background:var(--red-bg);color:var(--red);border:1px solid #f3b6b6;border-radius:9px;
+    padding:10px 12px;font-size:13px;margin-top:16px;text-align:center}
   .state{text-align:center;padding:80px 20px;color:var(--muted)}
   .state .big{font-size:46px;margin-bottom:10px}
   .state h2{color:var(--forest);font-size:20px;margin-bottom:6px}
-  .hidden{display:none}
-
-  /* stat cards */
+  .state button{margin-top:16px;padding:10px 20px;background:var(--forest);color:#fff;border:none;
+    border-radius:9px;font:inherit;font-weight:600;cursor:pointer}
   .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
   .card .label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
   .card .val{font-size:30px;font-weight:800;color:var(--forest);margin-top:4px;line-height:1}
   .card .foot{font-size:12px;color:var(--muted);margin-top:6px}
   .card.accent{background:var(--forest);border-color:var(--forest)}
-  .card.accent .label{color:var(--green)}
-  .card.accent .val,.card.accent .foot{color:#fff}
-
-  /* signups inline */
-  .signups{display:flex;gap:0;background:var(--card);border:1px solid var(--line);
-    border-radius:14px;overflow:hidden;margin-bottom:22px}
+  .card.accent .label{color:var(--green)} .card.accent .val,.card.accent .foot{color:#fff}
+  .signups{display:flex;background:var(--card);border:1px solid var(--line);border-radius:14px;
+    overflow:hidden;margin-bottom:22px}
   .signups div{flex:1;padding:14px 18px;text-align:center;border-right:1px solid var(--line)}
   .signups div:last-child{border-right:none}
-  .signups .n{font-size:22px;font-weight:800;color:var(--mid)}
-  .signups .t{font-size:12px;color:var(--muted)}
-
-  /* two columns */
+  .signups .n{font-size:22px;font-weight:800;color:var(--mid)} .signups .t{font-size:12px;color:var(--muted)}
   .cols{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:22px}
   .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
-  .panel h3{font-size:14px;color:var(--forest);margin-bottom:14px;text-transform:uppercase;
-    letter-spacing:.5px}
-
-  /* disease bars */
+  .panel h3{font-size:14px;color:var(--forest);margin-bottom:14px;text-transform:uppercase;letter-spacing:.5px}
+  .panel.full{margin-bottom:22px}
   .bar-row{margin-bottom:11px}
   .bar-row .bl{display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px}
-  .bar-row .bl b{color:var(--forest)}
-  .bar-row .bl span{color:var(--muted)}
+  .bar-row .bl b{color:var(--forest)} .bar-row .bl span{color:var(--muted)}
   .track{height:9px;background:var(--leaf);border-radius:5px;overflow:hidden}
   .fill{height:100%;background:var(--green);border-radius:5px}
-
-  /* health split */
   .health-bar{height:26px;border-radius:8px;overflow:hidden;display:flex;margin-bottom:12px;background:var(--leaf)}
-  .health-bar .h{background:var(--green)}
-  .health-bar .d{background:var(--red)}
+  .health-bar .h{background:var(--green)} .health-bar .d{background:var(--red)}
   .legend{display:flex;gap:18px;font-size:13px}
   .legend span{display:flex;align-items:center;gap:6px;color:var(--muted)}
   .dot{width:11px;height:11px;border-radius:3px;display:inline-block}
-
-  /* tables */
-  .panel.full{margin-bottom:22px}
   .tbl-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:12px;flex-wrap:wrap}
-  input.search{font:inherit;font-size:13px;padding:8px 12px;border:1px solid var(--line);
-    border-radius:9px;width:220px;max-width:100%}
+  input.search{font:inherit;font-size:13px;padding:8px 12px;border:1px solid var(--line);border-radius:9px;width:220px;max-width:100%}
   table{width:100%;border-collapse:collapse;font-size:13.5px}
   th{text-align:left;color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;
     letter-spacing:.4px;padding:9px 10px;border-bottom:2px solid var(--line)}
-  td{padding:10px;border-bottom:1px solid var(--line);color:var(--ink)}
+  td{padding:10px;border-bottom:1px solid var(--line)}
   tr:last-child td{border-bottom:none}
   .pill{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px}
-  .pill.small{background:var(--leaf);color:var(--mid)}
-  .pill.large{background:#e7eef9;color:#3a6ea5}
-  .pill.healthy{background:var(--leaf);color:var(--mid)}
-  .pill.diseased{background:var(--red-bg);color:var(--red)}
+  .pill.small{background:var(--leaf);color:var(--mid)} .pill.large{background:#e7eef9;color:#3a6ea5}
+  .pill.healthy{background:var(--leaf);color:var(--mid)} .pill.diseased{background:var(--red-bg);color:var(--red)}
   .muted{color:var(--muted)}
-
+  .pill.t-active{background:var(--leaf);color:var(--mid)}
+  .pill.t-expiring{background:#fdf3e7;color:#c97b2a}
+  .pill.t-expired{background:var(--red-bg);color:var(--red)}
+  .filters{display:flex;gap:8px;flex-wrap:wrap}
+  .filters button{font:inherit;font-size:12.5px;font-weight:600;padding:6px 13px;border-radius:20px;
+    border:1px solid var(--line);background:#fff;color:var(--muted);cursor:pointer}
+  .filters button.on{background:var(--forest);color:#fff;border-color:var(--forest)}
   @media (max-width:820px){
     .cards{grid-template-columns:1fr 1fr} .cols{grid-template-columns:1fr}
-    .signups{flex-wrap:wrap} .signups div{flex:1 0 33%}
     table{font-size:12.5px} th,td{padding:8px 7px}
   }
 </style>
 </head>
 <body>
-
 <div class="topbar">
   <div class="brand">🌿 AgroTech <span class="badge">ADMIN</span></div>
   <div class="top-actions">
     <a href="dashboard.html">Open App</a>
-    <button onclick="logout()">Log out</button>
+    <button id="logoutBtn" class="hidden" onclick="logout()">Log out</button>
+  </div>
+</div>
+
+<div id="login" class="login-screen hidden">
+  <div class="login-card">
+    <div class="leaf">🌿</div>
+    <h2>Admin Sign In</h2>
+    <div class="p">Restricted area — administrators only.</div>
+    <label for="email">Email or phone</label>
+    <input id="email" type="text" autocomplete="username" placeholder="you@example.com">
+    <label for="pw">Password</label>
+    <input id="pw" type="password" autocomplete="current-password" placeholder="********">
+    <button id="loginBtn" onclick="doLogin()">Sign in</button>
+    <div id="loginErr" class="err hidden"></div>
   </div>
 </div>
 
 <div class="wrap">
-  <!-- loading -->
-  <div id="loading" class="state">
-    <div class="big">⏳</div>
-    <h2>Loading dashboard…</h2>
-    <p>Fetching the latest numbers.</p>
+  <div id="loading" class="state hidden">
+    <div class="big">⏳</div><h2>Loading…</h2>
+    <p>Fetching the latest numbers (the server may take a few seconds to wake up).</p>
   </div>
-
-  <!-- access denied -->
+  <div id="errscreen" class="state hidden">
+    <div class="big">⚠️</div><h2>Couldn't reach the server</h2>
+    <p>It may be starting up. Please try again.</p>
+    <button onclick="load()">Retry</button>
+  </div>
   <div id="denied" class="state hidden">
-    <div class="big">🔒</div>
-    <h2>Admins only</h2>
-    <p>This account doesn't have admin access.</p>
+    <div class="big">🔒</div><h2>Not an admin account</h2>
+    <p>This login doesn't have admin access.</p>
+    <button onclick="logout()">Sign in as a different account</button>
   </div>
 
-  <!-- dashboard -->
   <div id="dash" class="hidden">
     <h1>Admin Dashboard</h1>
     <div class="sub">A live overview of AgroTech — farmers, scans, and activity.</div>
-
     <div class="cards">
       <div class="card accent"><div class="label">Total Farmers</div><div class="val" id="c-farmers">—</div><div class="foot" id="c-scale">—</div></div>
       <div class="card"><div class="label">Total Scans</div><div class="val" id="c-scans">—</div><div class="foot" id="c-health">—</div></div>
       <div class="card"><div class="label">Crops Tracked</div><div class="val" id="c-crops">—</div></div>
-      <div class="card"><div class="label">Tasks &amp; Items</div><div class="val" id="c-tasks">—</div><div class="foot" id="c-items">—</div></div>
+      <div class="card"><div class="label">Tasks</div><div class="val" id="c-tasks">—</div><div class="foot" id="c-items">—</div></div>
     </div>
-
     <div class="signups">
       <div><div class="n" id="s-today">—</div><div class="t">New today</div></div>
       <div><div class="n" id="s-week">—</div><div class="t">Last 7 days</div></div>
       <div><div class="n" id="s-month">—</div><div class="t">Last 30 days</div></div>
     </div>
 
+    <div class="panel full">
+      <h3>Free Trials</h3>
+      <div class="signups" style="margin:0;border:none">
+        <div><div class="n" id="t-active" style="color:var(--green)">—</div><div class="t">Active</div></div>
+        <div><div class="n" id="t-expiring" style="color:#c97b2a">—</div><div class="t">Ending ≤ 7 days</div></div>
+        <div><div class="n" id="t-expired" style="color:var(--red)">—</div><div class="t">Trial over</div></div>
+      </div>
+    </div>
     <div class="cols">
       <div class="panel">
         <h3>Top Diseases Detected</h3>
@@ -158,7 +176,6 @@
         </div>
       </div>
     </div>
-
     <div class="panel full">
       <h3>Recent Scans</h3>
       <table>
@@ -166,14 +183,19 @@
         <tbody id="recent"></tbody>
       </table>
     </div>
-
     <div class="panel full">
       <div class="tbl-head">
         <h3 style="margin:0">All Farmers (<span id="f-count">0</span>)</h3>
-        <input class="search" id="search" placeholder="Search name, phone, email…" oninput="filterFarmers()">
+        <input class="search" id="search" placeholder="Search name, phone, email..." oninput="filterFarmers()">
+      </div>
+      <div class="filters" style="margin-bottom:14px">
+        <button class="on" data-f="all"      onclick="setFilter('all',this)">All</button>
+        <button data-f="active"   onclick="setFilter('active',this)">Active</button>
+        <button data-f="expiring" onclick="setFilter('expiring',this)">Ending soon</button>
+        <button data-f="expired"  onclick="setFilter('expired',this)">Trial over</button>
       </div>
       <table>
-        <thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>County</th><th>Scale</th><th>Scans</th><th>Joined</th></tr></thead>
+        <thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>County</th><th>Scale</th><th>Scans</th><th>Trial</th><th>Joined</th></tr></thead>
         <tbody id="farmers"></tbody>
       </table>
     </div>
@@ -182,38 +204,59 @@
 
 <script>
   const API = "https://agrotech-production-4c2f.up.railway.app";
-  const token = localStorage.getItem("agro_token");
-
-  // Escape user-entered text before inserting into the page (XSS safety).
+  const TOKEN_KEY = "agro_token";
   function esc(v){ if(v===null||v===undefined) return "";
     return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
       .replace(/"/g,"&quot;").replace(/'/g,"&#039;"); }
+  const SCREENS = ["login","loading","errscreen","denied","dash"];
+  function show(id){
+    SCREENS.forEach(x => document.getElementById(x).classList.toggle("hidden", x!==id));
+    document.getElementById("logoutBtn").classList.toggle("hidden", id!=="dash");
+  }
+  function token(){ return localStorage.getItem(TOKEN_KEY); }
+  function logout(){ localStorage.removeItem(TOKEN_KEY); show("login"); }
 
-  function show(id){ ["loading","denied","dash"].forEach(x =>
-    document.getElementById(x).classList.toggle("hidden", x!==id)); }
-
-  function logout(){ localStorage.removeItem("agro_token"); window.location.href = "../index.html"; }
-
-  if(!token){ window.location.href = "../index.html"; }
-
-  const headers = { "Authorization": "Bearer " + token };
-  let allFarmers = [];
+  async function doLogin(){
+    const id = document.getElementById("email").value.trim();
+    const pw = document.getElementById("pw").value;
+    const errBox = document.getElementById("loginErr");
+    const btn = document.getElementById("loginBtn");
+    errBox.classList.add("hidden");
+    if(!id || !pw){ errBox.textContent = "Enter your email/phone and password."; errBox.classList.remove("hidden"); return; }
+    btn.disabled = true; btn.textContent = "Signing in...";
+    try {
+      const res = await fetch(API + "/auth/login", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ identifier: id, password: pw })
+      });
+      if(res.status === 401 || res.status === 404){
+        errBox.textContent = "Wrong email/phone or password."; errBox.classList.remove("hidden"); return;
+      }
+      if(!res.ok){ errBox.textContent = "Login failed. Please try again."; errBox.classList.remove("hidden"); return; }
+      const data = await res.json();
+      localStorage.setItem(TOKEN_KEY, data.token);
+      load();
+    } catch(e){
+      errBox.textContent = "Couldn't reach the server. Try again in a moment.";
+      errBox.classList.remove("hidden");
+    } finally { btn.disabled = false; btn.textContent = "Sign in"; }
+  }
+  document.addEventListener("keydown", e => {
+    if(e.key==="Enter" && !document.getElementById("login").classList.contains("hidden")) doLogin();
+  });
 
   async function load(){
+    if(!token()){ show("login"); return; }
+    show("loading");
     try {
-      const res = await fetch(API + "/admin/overview", { headers });
+      const res = await fetch(API + "/admin/overview", { headers:{ "Authorization":"Bearer "+token() } });
       if(res.status === 401){ logout(); return; }
       if(res.status === 403){ show("denied"); return; }
-      if(!res.ok){ throw new Error("overview " + res.status); }
-      const d = await res.json();
-      renderOverview(d);
+      if(!res.ok){ show("errscreen"); return; }
+      renderOverview(await res.json());
       show("dash");
       loadFarmers();
-    } catch(e){
-      document.getElementById("loading").innerHTML =
-        '<div class="big">⚠️</div><h2>Couldn\'t load</h2><p>Please refresh, or check the backend is online.</p>';
-      console.error(e);
-    }
+    } catch(e){ show("errscreen"); console.error(e); }
   }
 
   function renderOverview(d){
@@ -224,12 +267,14 @@
     document.getElementById("c-crops").textContent   = d.totals.crops;
     document.getElementById("c-tasks").textContent   = d.totals.tasks;
     document.getElementById("c-items").textContent   = d.totals.inventory + " inventory items";
-
     document.getElementById("s-today").textContent = d.signups.today;
     document.getElementById("s-week").textContent  = d.signups.week;
     document.getElementById("s-month").textContent = d.signups.month;
-
-    // top diseases bars
+    if(d.trials){
+      document.getElementById("t-active").textContent   = d.trials.active;
+      document.getElementById("t-expiring").textContent = d.trials.expiring;
+      document.getElementById("t-expired").textContent  = d.trials.expired;
+    }
     const box = document.getElementById("diseases");
     if(d.top_diseases.length){
       const max = Math.max(...d.top_diseases.map(x => x.count));
@@ -238,65 +283,67 @@
           <div class="bl"><b>${esc(x.disease)}</b><span>${x.count}</span></div>
           <div class="track"><div class="fill" style="width:${Math.round(x.count/max*100)}%"></div></div>
         </div>`).join("");
-    }
-
-    // health split
+    } else { box.innerHTML = '<div class="muted">No diseased scans yet.</div>'; }
     const h = d.scan_health.healthy, dd = d.scan_health.diseased, tot = h+dd;
     document.getElementById("hb-h").style.width = tot ? (h/tot*100)+"%" : "0";
     document.getElementById("hb-d").style.width = tot ? (dd/tot*100)+"%" : "0";
     document.getElementById("lg-h").textContent = h;
     document.getElementById("lg-d").textContent = dd;
-
-    // recent scans
     const rec = document.getElementById("recent");
-    if(d.recent_scans.length){
-      rec.innerHTML = d.recent_scans.map(s => `
-        <tr>
-          <td>${esc(s.farmer)}</td>
-          <td>${esc(s.plant)}</td>
-          <td>${esc(s.disease)}</td>
-          <td>${s.confidence}%</td>
-          <td><span class="pill ${s.status==='healthy'?'healthy':'diseased'}">${esc(s.status||'—')}</span></td>
-          <td class="muted">${esc(s.date)}</td>
-        </tr>`).join("");
-    } else {
-      rec.innerHTML = '<tr><td colspan="6" class="muted">No scans yet.</td></tr>';
-    }
+    rec.innerHTML = d.recent_scans.length ? d.recent_scans.map(s => `
+      <tr><td>${esc(s.farmer)}</td><td>${esc(s.plant)}</td><td>${esc(s.disease)}</td>
+        <td>${s.confidence}%</td>
+        <td><span class="pill ${s.status==='healthy'?'healthy':'diseased'}">${esc(s.status||'—')}</span></td>
+        <td class="muted">${esc(s.date)}</td></tr>`).join("")
+      : '<tr><td colspan="6" class="muted">No scans yet.</td></tr>';
   }
 
+  let allFarmers = [];
+  let currentFilter = "all";
+  function trialPill(f){
+    const dl = f.days_left;
+    if(f.trial_status==="expired")  return `<span class="pill t-expired">Over ${Math.abs(dl)}d ago</span>`;
+    if(f.trial_status==="expiring") return `<span class="pill t-expiring">Ends in ${dl}d</span>`;
+    return `<span class="pill t-active">${dl}d left</span>`;
+  }
   async function loadFarmers(){
     try {
-      const res = await fetch(API + "/admin/farmers", { headers });
+      const res = await fetch(API + "/admin/farmers", { headers:{ "Authorization":"Bearer "+token() } });
       if(!res.ok) return;
       allFarmers = await res.json();
-      document.getElementById("f-count").textContent = allFarmers.length;
-      renderFarmers(allFarmers);
+      applyFilters();
     } catch(e){ console.error(e); }
   }
-
   function renderFarmers(list){
     const body = document.getElementById("farmers");
-    if(!list.length){ body.innerHTML = '<tr><td colspan="7" class="muted">No farmers found.</td></tr>'; return; }
-    body.innerHTML = list.map(f => `
-      <tr>
-        <td>${esc(f.name)}</td>
-        <td>${esc(f.phone)}</td>
+    document.getElementById("f-count").textContent = list.length;
+    body.innerHTML = list.length ? list.map(f => `
+      <tr><td>${esc(f.name)}</td><td>${esc(f.phone)}</td>
         <td>${esc(f.email)||'<span class="muted">—</span>'}</td>
         <td>${esc(f.county)}</td>
         <td><span class="pill ${f.scale==='large'?'large':'small'}">${esc(f.scale)}</span></td>
         <td>${f.scans}</td>
-        <td class="muted">${esc(f.registered)}</td>
-      </tr>`).join("");
+        <td>${trialPill(f)}</td>
+        <td class="muted">${esc(f.registered)}</td></tr>`).join("")
+      : '<tr><td colspan="8" class="muted">No farmers match.</td></tr>';
   }
-
-  function filterFarmers(){
+  function setFilter(f, btn){
+    currentFilter = f;
+    document.querySelectorAll(".filters button").forEach(b => b.classList.remove("on"));
+    btn.classList.add("on");
+    applyFilters();
+  }
+  function applyFilters(){
     const q = document.getElementById("search").value.toLowerCase();
-    renderFarmers(allFarmers.filter(f =>
-      (f.name||"").toLowerCase().includes(q) ||
-      (f.phone||"").toLowerCase().includes(q) ||
-      (f.email||"").toLowerCase().includes(q)));
+    renderFarmers(allFarmers.filter(f => {
+      const matchText = (f.name||"").toLowerCase().includes(q) ||
+                        (f.phone||"").toLowerCase().includes(q) ||
+                        (f.email||"").toLowerCase().includes(q);
+      const matchFilter = currentFilter==="all" || f.trial_status===currentFilter;
+      return matchText && matchFilter;
+    }));
   }
-
+  function filterFarmers(){ applyFilters(); }
   load();
 </script>
 </body>

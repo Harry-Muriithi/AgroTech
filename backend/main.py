@@ -1659,6 +1659,23 @@ ADMIN_EMAILS = [e.strip().lower() for e in
                 os.getenv("ADMIN_EMAILS", "harunmuriithi542@gmail.com").split(",")
                 if e.strip()]
 
+# Free-trial length in days (matches the app's 30-day trial).
+TRIAL_DAYS = int(os.getenv("TRIAL_DAYS", "30"))
+
+
+def _trial_days_left(registered_at):
+    """Days remaining in the trial. Zero or negative = already expired."""
+    if not registered_at:
+        return TRIAL_DAYS
+    used = (datetime.utcnow() - registered_at).days
+    return TRIAL_DAYS - used
+
+
+def _trial_status(days_left):
+    if days_left <= 0:  return "expired"
+    if days_left <= 7:  return "expiring"
+    return "active"
+
 
 def get_admin_farmer(farmer: Farmer = Depends(get_current_farmer)) -> "Farmer":
     """Allow only logged-in farmers whose email is in ADMIN_EMAILS."""
@@ -1691,6 +1708,14 @@ def admin_overview(admin: Farmer = Depends(get_admin_farmer), db: Session = Depe
     healthy  = db.query(Scan).filter(Scan.status == "healthy").count()
     diseased = total_scans - healthy
 
+    # Trial status counts (computed from each farmer's registration date)
+    trial_active = trial_expiring = trial_expired = 0
+    for (reg,) in db.query(Farmer.registered_at).all():
+        st = _trial_status(_trial_days_left(reg))
+        if   st == "expired":  trial_expired  += 1
+        elif st == "expiring": trial_expiring += 1
+        else:                  trial_active   += 1
+
     rows    = db.query(Scan.disease).filter(Scan.status != "healthy").all()
     counter = _collections.Counter([r[0] for r in rows if r[0]])
     top_diseases = [{"disease": d, "count": c} for d, c in counter.most_common(8)]
@@ -1714,6 +1739,7 @@ def admin_overview(admin: Farmer = Depends(get_admin_farmer), db: Session = Depe
         "scale":       {"small": small, "large": large},
         "signups":     {"today": signups_today, "week": signups_week, "month": signups_month},
         "scan_health": {"healthy": healthy, "diseased": diseased},
+        "trials":      {"active": trial_active, "expiring": trial_expiring, "expired": trial_expired},
         "top_diseases": top_diseases,
         "recent_scans": recent_scans,
     }
@@ -1726,15 +1752,18 @@ def admin_farmers(admin: Farmer = Depends(get_admin_farmer), db: Session = Depen
     out = []
     for f in farmers:
         scan_count = db.query(Scan).filter(Scan.farmer_id == f.id).count()
+        days_left  = _trial_days_left(f.registered_at)
         out.append({
-            "id":         f.id,
-            "name":       f.name,
-            "phone":      f.phone,
-            "email":      f.email,
-            "county":     f.county,
-            "scale":      f.farm_scale,
-            "farm_size":  f.farm_size,
-            "scans":      scan_count,
-            "registered": f.registered_at.strftime("%Y-%m-%d") if f.registered_at else ""
+            "id":           f.id,
+            "name":         f.name,
+            "phone":        f.phone,
+            "email":        f.email,
+            "county":       f.county,
+            "scale":        f.farm_scale,
+            "farm_size":    f.farm_size,
+            "scans":        scan_count,
+            "registered":   f.registered_at.strftime("%Y-%m-%d") if f.registered_at else "",
+            "days_left":    days_left,
+            "trial_status": _trial_status(days_left),
         })
     return out
