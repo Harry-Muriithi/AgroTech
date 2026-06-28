@@ -1646,3 +1646,95 @@ def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
     db.commit()
 
     return {"success": True, "message": "Password updated successfully! You can now log in with your new password."}
+
+
+# ═══════════════════════════════════════════════════════════
+#  ADMIN DASHBOARD ENDPOINTS
+#  Only accounts whose email is listed in ADMIN_EMAILS can use
+#  these. Set ADMIN_EMAILS in Railway Variables (comma-separated).
+# ═══════════════════════════════════════════════════════════
+import collections as _collections
+
+ADMIN_EMAILS = [e.strip().lower() for e in
+                os.getenv("ADMIN_EMAILS", "harunmuriithi542@gmail.com").split(",")
+                if e.strip()]
+
+
+def get_admin_farmer(farmer: Farmer = Depends(get_current_farmer)) -> "Farmer":
+    """Allow only logged-in farmers whose email is in ADMIN_EMAILS."""
+    if not farmer.email or farmer.email.lower() not in ADMIN_EMAILS:
+        raise HTTPException(status_code=403, detail="Admins only.")
+    return farmer
+
+
+@app.get("/admin/overview")
+def admin_overview(admin: Farmer = Depends(get_admin_farmer), db: Session = Depends(get_db)):
+    """High-level numbers for the admin dashboard."""
+    now         = datetime.utcnow()
+    today_start = datetime(now.year, now.month, now.day)
+    week_ago    = now - timedelta(days=7)
+    month_ago   = now - timedelta(days=30)
+
+    total_farmers = db.query(Farmer).count()
+    total_scans   = db.query(Scan).count()
+    total_tasks   = db.query(Task).count()
+    total_items   = db.query(InventoryItem).count()
+    total_crops   = db.query(Crop).count()
+
+    small = db.query(Farmer).filter(Farmer.farm_scale == "small").count()
+    large = db.query(Farmer).filter(Farmer.farm_scale == "large").count()
+
+    signups_today = db.query(Farmer).filter(Farmer.registered_at >= today_start).count()
+    signups_week  = db.query(Farmer).filter(Farmer.registered_at >= week_ago).count()
+    signups_month = db.query(Farmer).filter(Farmer.registered_at >= month_ago).count()
+
+    healthy  = db.query(Scan).filter(Scan.status == "healthy").count()
+    diseased = total_scans - healthy
+
+    rows    = db.query(Scan.disease).filter(Scan.status != "healthy").all()
+    counter = _collections.Counter([r[0] for r in rows if r[0]])
+    top_diseases = [{"disease": d, "count": c} for d, c in counter.most_common(8)]
+
+    recent = (db.query(Scan, Farmer.name)
+                .join(Farmer, Scan.farmer_id == Farmer.id)
+                .order_by(Scan.scanned_at.desc())
+                .limit(10).all())
+    recent_scans = [{
+        "farmer":     name,
+        "plant":      s.plant,
+        "disease":    s.disease,
+        "confidence": round(s.confidence or 0, 1),
+        "status":     s.status,
+        "date":       s.scanned_at.strftime("%Y-%m-%d %H:%M") if s.scanned_at else ""
+    } for s, name in recent]
+
+    return {
+        "totals":      {"farmers": total_farmers, "scans": total_scans,
+                        "tasks": total_tasks, "inventory": total_items, "crops": total_crops},
+        "scale":       {"small": small, "large": large},
+        "signups":     {"today": signups_today, "week": signups_week, "month": signups_month},
+        "scan_health": {"healthy": healthy, "diseased": diseased},
+        "top_diseases": top_diseases,
+        "recent_scans": recent_scans,
+    }
+
+
+@app.get("/admin/farmers")
+def admin_farmers(admin: Farmer = Depends(get_admin_farmer), db: Session = Depends(get_db)):
+    """Full list of farmers (no passwords/tokens exposed)."""
+    farmers = db.query(Farmer).order_by(Farmer.registered_at.desc()).all()
+    out = []
+    for f in farmers:
+        scan_count = db.query(Scan).filter(Scan.farmer_id == f.id).count()
+        out.append({
+            "id":         f.id,
+            "name":       f.name,
+            "phone":      f.phone,
+            "email":      f.email,
+            "county":     f.county,
+            "scale":      f.farm_scale,
+            "farm_size":  f.farm_size,
+            "scans":      scan_count,
+            "registered": f.registered_at.strftime("%Y-%m-%d") if f.registered_at else ""
+        })
+    return out
