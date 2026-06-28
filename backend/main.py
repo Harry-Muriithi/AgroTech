@@ -1457,47 +1457,67 @@ async def chat(req: ChatRequest, farmer: Farmer = Depends(get_current_farmer)):
 
 import smtplib
 import random
+import json
+import urllib.request
+import urllib.error
 from email.mime.text import MIMEText
 
-# ── GMAIL SENDER SETTINGS ────────────────────────────────
-# This is the Gmail account that SENDS reset emails.
-# GMAIL_APP_PASSWORD is the 16-character App Password
-# (NOT the normal Gmail password) generated at
-# https://myaccount.google.com/apppasswords
-# Credentials now come from Railway environment variables (Variables tab).
-# Never hardcode the password again — exposed Gmail App Passwords get revoked.
-GMAIL_SENDER       = os.getenv("GMAIL_SENDER", "harunmuriithi542@gmail.com")
-GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
+# ── EMAIL SETTINGS (Brevo HTTP API — works on Railway) ───────
+# Railway BLOCKS outbound SMTP ports, so we send email over a normal
+# HTTPS request (port 443) using Brevo's API instead. Emails can still
+# show your Gmail address as the sender (verify it in Brevo first).
+#
+# Set these in Railway Variables:
+#   BREVO_API_KEY    = your Brevo API key (starts with "xkeysib-...")
+#   EMAIL_FROM       = harunmuriithi542@gmail.com   (verified sender in Brevo)
+#   EMAIL_FROM_NAME  = AgroTech Kenya
+BREVO_API_KEY   = os.getenv("BREVO_API_KEY", "")
+EMAIL_FROM      = os.getenv("EMAIL_FROM", "harunmuriithi542@gmail.com")
+EMAIL_FROM_NAME = os.getenv("EMAIL_FROM_NAME", "AgroTech Kenya")
 
 
-def _send_gmail(to_email: str, subject: str, body: str) -> bool:
+def _send_email(to_email: str, subject: str, body: str) -> bool:
     """
-    Low-level Gmail SMTP send used by all emails.
-    Returns True on success, False on failure. Needs GMAIL_SENDER +
-    GMAIL_APP_PASSWORD (a 16-char App Password) set in Railway Variables.
+    Sends an email through the Brevo HTTP API over HTTPS (port 443).
+    Returns True on success, False on failure. Works on Railway because
+    it does NOT use SMTP (which Railway blocks).
     """
-    if not GMAIL_APP_PASSWORD:
-        logger.error("GMAIL_APP_PASSWORD is not set — cannot send email to %s", to_email)
+    if not BREVO_API_KEY:
+        logger.error("BREVO_API_KEY is not set — cannot send email to %s", to_email)
         return False
 
-    msg = MIMEText(body)
-    msg["Subject"] = subject
-    msg["From"]    = GMAIL_SENDER
-    msg["To"]      = to_email
+    payload = json.dumps({
+        "sender": {"name": EMAIL_FROM_NAME, "email": EMAIL_FROM},
+        "to": [{"email": to_email}],
+        "subject": subject,
+        "textContent": body,
+    }).encode("utf-8")
 
+    req = urllib.request.Request(
+        "https://api.brevo.com/v3/smtp/email",
+        data=payload,
+        method="POST",
+        headers={
+            "api-key": BREVO_API_KEY,
+            "content-type": "application/json",
+            "accept": "application/json",
+        },
+    )
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as server:
-            server.login(GMAIL_SENDER, GMAIL_APP_PASSWORD)
-            server.sendmail(GMAIL_SENDER, to_email, msg.as_string())
-        logger.info("Email sent to %s (subject: %s)", to_email, subject)
-        return True
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            logger.info("Email sent to %s (HTTP %s)", to_email, resp.status)
+            return True
+    except urllib.error.HTTPError as e:
+        body_txt = e.read().decode("utf-8", "ignore")[:300]
+        logger.error("Failed to send email to %s: HTTP %s %s", to_email, e.code, body_txt)
+        return False
     except Exception as e:
         logger.error("Failed to send email to %s: %s", to_email, e)
         return False
 
 
 def send_reset_email(to_email: str, code: str, name: str):
-    """Sends a 6-digit password-reset code to the farmer's email via Gmail."""
+    """Sends a 6-digit password-reset code to the farmer's email."""
     subject = "AgroTech — Your Password Reset Code"
     body = f"""Hello {name},
 
@@ -1514,13 +1534,13 @@ If you did not request this, you can safely ignore this email.
 — AgroTech Team
 Smart Farming Platform · Kenya
 """
-    _send_gmail(to_email, subject, body)
+    _send_email(to_email, subject, body)
 
 
 @app.get("/test-email")
 def test_email(to: str, secret: str = ""):
     """
-    Quick check that Gmail sending works.
+    Quick check that email sending works.
     Visit:  /test-email?to=YOUR_EMAIL&secret=YOUR_SECRET
     Set TEST_EMAIL_SECRET in Railway Variables to enable it.
     Returns {"sent": true} on success — the Logs tab shows full details.
@@ -1528,10 +1548,10 @@ def test_email(to: str, secret: str = ""):
     expected = os.getenv("TEST_EMAIL_SECRET", "")
     if not expected or secret != expected:
         raise HTTPException(status_code=403, detail="Forbidden")
-    ok = _send_gmail(
+    ok = _send_email(
         to,
         "AgroTech — Test Email",
-        "This is a test email from AgroTech. If you received it, Gmail sending works correctly!"
+        "This is a test email from AgroTech. If you received it, email sending works correctly!"
     )
     return {"sent": ok, "to": to}
 
