@@ -1470,11 +1470,34 @@ GMAIL_SENDER       = os.getenv("GMAIL_SENDER", "harunmuriithi542@gmail.com")
 GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
 
 
+def _send_gmail(to_email: str, subject: str, body: str) -> bool:
+    """
+    Low-level Gmail SMTP send used by all emails.
+    Returns True on success, False on failure. Needs GMAIL_SENDER +
+    GMAIL_APP_PASSWORD (a 16-char App Password) set in Railway Variables.
+    """
+    if not GMAIL_APP_PASSWORD:
+        logger.error("GMAIL_APP_PASSWORD is not set — cannot send email to %s", to_email)
+        return False
+
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"]    = GMAIL_SENDER
+    msg["To"]      = to_email
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as server:
+            server.login(GMAIL_SENDER, GMAIL_APP_PASSWORD)
+            server.sendmail(GMAIL_SENDER, to_email, msg.as_string())
+        logger.info("Email sent to %s (subject: %s)", to_email, subject)
+        return True
+    except Exception as e:
+        logger.error("Failed to send email to %s: %s", to_email, e)
+        return False
+
+
 def send_reset_email(to_email: str, code: str, name: str):
-    """
-    Sends a 6-digit reset code to the farmer's email using Gmail SMTP.
-    This is completely free - no API key needed, just Gmail + App Password.
-    """
+    """Sends a 6-digit password-reset code to the farmer's email via Gmail."""
     subject = "AgroTech — Your Password Reset Code"
     body = f"""Hello {name},
 
@@ -1491,24 +1514,26 @@ If you did not request this, you can safely ignore this email.
 — AgroTech Team
 Smart Farming Platform · Kenya
 """
+    _send_gmail(to_email, subject, body)
 
-    msg = MIMEText(body)
-    msg["Subject"] = subject
-    msg["From"]    = GMAIL_SENDER
-    msg["To"]      = to_email
 
-    if not GMAIL_APP_PASSWORD:
-        logger.error("GMAIL_APP_PASSWORD is not set — cannot send reset email to %s", to_email)
-        return
-
-    # Connect to Gmail's SMTP server and send the email
-    try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as server:
-            server.login(GMAIL_SENDER, GMAIL_APP_PASSWORD)
-            server.sendmail(GMAIL_SENDER, to_email, msg.as_string())
-        logger.info("Reset email sent to %s", to_email)
-    except Exception as e:
-        logger.error("Failed to send reset email to %s: %s", to_email, e)
+@app.get("/test-email")
+def test_email(to: str, secret: str = ""):
+    """
+    Quick check that Gmail sending works.
+    Visit:  /test-email?to=YOUR_EMAIL&secret=YOUR_SECRET
+    Set TEST_EMAIL_SECRET in Railway Variables to enable it.
+    Returns {"sent": true} on success — the Logs tab shows full details.
+    """
+    expected = os.getenv("TEST_EMAIL_SECRET", "")
+    if not expected or secret != expected:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    ok = _send_gmail(
+        to,
+        "AgroTech — Test Email",
+        "This is a test email from AgroTech. If you received it, Gmail sending works correctly!"
+    )
+    return {"sent": ok, "to": to}
 
 
 class ForgotPasswordRequest(BaseModel):
