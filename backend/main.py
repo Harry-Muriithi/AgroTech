@@ -1655,9 +1655,22 @@ def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
 # ═══════════════════════════════════════════════════════════
 import collections as _collections
 
-ADMIN_EMAILS = [e.strip().lower() for e in
-                os.getenv("ADMIN_EMAILS", "harunmuriithi542@gmail.com").split(",")
-                if e.strip()]
+import hashlib as _hashlib
+
+# ── ADMIN CREDENTIALS ────────────────────────────────────
+# A DEDICATED admin username + password, completely separate
+# from farmer accounts. You choose them yourself in Railway
+# Variables (so you can see/set the password):
+#   ADMIN_USERNAME = admin
+#   ADMIN_PASSWORD = (a strong password you pick)
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
+
+
+def _expected_admin_token() -> str:
+    """A stable token derived from the admin credentials (no DB needed)."""
+    raw = "agroadmin:" + ADMIN_USERNAME + ":" + ADMIN_PASSWORD
+    return _hashlib.sha256(raw.encode()).hexdigest()
 
 # Free-trial length in days (matches the app's 30-day trial).
 TRIAL_DAYS = int(os.getenv("TRIAL_DAYS", "30"))
@@ -1677,15 +1690,34 @@ def _trial_status(days_left):
     return "active"
 
 
-def get_admin_farmer(farmer: Farmer = Depends(get_current_farmer)) -> "Farmer":
-    """Allow only logged-in farmers whose email is in ADMIN_EMAILS."""
-    if not farmer.email or farmer.email.lower() not in ADMIN_EMAILS:
-        raise HTTPException(status_code=403, detail="Admins only.")
-    return farmer
+class AdminLoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+@app.post("/admin/login")
+def admin_login(req: AdminLoginRequest, request: Request):
+    """Dedicated admin login — separate from farmer accounts."""
+    rate_limit(request, "admin_login", max_calls=10, window_sec=60)
+    if not ADMIN_USERNAME or not ADMIN_PASSWORD:
+        raise HTTPException(status_code=503,
+            detail="Admin login is not set up yet. Add ADMIN_USERNAME and ADMIN_PASSWORD in Railway.")
+    if req.username.strip() == ADMIN_USERNAME and req.password == ADMIN_PASSWORD:
+        return {"success": True, "token": _expected_admin_token()}
+    raise HTTPException(status_code=401, detail="Wrong admin username or password.")
+
+
+def require_admin(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Protects admin endpoints using the dedicated admin token."""
+    if not ADMIN_PASSWORD:
+        raise HTTPException(status_code=503, detail="Admin login is not configured.")
+    if not credentials or credentials.credentials != _expected_admin_token():
+        raise HTTPException(status_code=401, detail="Admin authentication required.")
+    return True
 
 
 @app.get("/admin/overview")
-def admin_overview(admin: Farmer = Depends(get_admin_farmer), db: Session = Depends(get_db)):
+def admin_overview(_admin: bool = Depends(require_admin), db: Session = Depends(get_db)):
     """High-level numbers for the admin dashboard."""
     now         = datetime.utcnow()
     today_start = datetime(now.year, now.month, now.day)
@@ -1746,7 +1778,7 @@ def admin_overview(admin: Farmer = Depends(get_admin_farmer), db: Session = Depe
 
 
 @app.get("/admin/farmers")
-def admin_farmers(admin: Farmer = Depends(get_admin_farmer), db: Session = Depends(get_db)):
+def admin_farmers(_admin: bool = Depends(require_admin), db: Session = Depends(get_db)):
     """Full list of farmers (no passwords/tokens exposed)."""
     farmers = db.query(Farmer).order_by(Farmer.registered_at.desc()).all()
     out = []
