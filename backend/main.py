@@ -40,7 +40,14 @@ from reportlab.lib.units import inch
 # ═══════════════════════════════════════════════════════════
 
 BASE_DIR     = os.path.dirname(os.path.abspath(__file__))  # folder where main.py lives
-DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, 'agrotech.db')}"
+
+# Where the database file lives.
+# On Railway we set DB_DIR=/data and attach a Volume there, so the database
+# SURVIVES redeploys. Locally (no DB_DIR set) it falls back to the backend
+# folder, exactly as before.
+DB_DIR = os.getenv("DB_DIR", BASE_DIR)
+os.makedirs(DB_DIR, exist_ok=True)
+DATABASE_URL = f"sqlite:///{os.path.join(DB_DIR, 'agrotech.db')}"
 
 engine       = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
