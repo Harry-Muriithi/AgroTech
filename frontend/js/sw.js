@@ -8,7 +8,7 @@
 // ═══════════════════════════════════════════════════════════
 
 const CACHE_VERSION = "agrotech-v1";
-const API_HOST = "agrotech-production-4c2f.up.railway.app";
+const API_HOST = "agrotech-75cy.onrender.com";
 
 // App shell — cached on install so the app opens even offline.
 const SHELL = [

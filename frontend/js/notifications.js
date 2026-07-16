@@ -11,7 +11,7 @@
 //    - A dropdown list when the bell is clicked
 // ═══════════════════════════════════════════════════════════
 
-const NOTIF_API = "https://agrotech-production-4c2f.up.railway.app";
+const NOTIF_API = "https://agrotech-75cy.onrender.com";
 
 // Escape user text before putting it in innerHTML (XSS protection).
 // Falls back to a local copy if app.js hasn't defined the shared one.

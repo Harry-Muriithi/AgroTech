@@ -13,7 +13,7 @@
 (function () {
   "use strict";
 
-  const API_HOST = "agrotech-production-4c2f.up.railway.app";
+  const API_HOST = "agrotech-75cy.onrender.com";
 
   // ───────────────────────────────────────────────
   // 1. ESCAPE HTML  (XSS protection)
