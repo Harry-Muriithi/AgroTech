@@ -17,7 +17,7 @@
     Permissions-Policy = "geolocation=(self), camera=(self), microphone=()"
     # CSP allows your own files + inline scripts/styles (the app uses many),
     # plus network calls to the Railway backend and the open-meteo weather API.
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://agrotech-75cy.onrender.com https://api.open-meteo.com; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://agrotech-75cy.onrender.com https://api.open-meteo.com https://api.bigdatacloud.net; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
 
 # ── Service worker must be served fresh and allowed root scope ──
 [[headers]]
