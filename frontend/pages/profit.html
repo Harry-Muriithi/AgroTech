@@ -241,6 +241,7 @@
         <p>Track income from sales and farm expenses</p>
       </div>
       <div style="display:flex;gap:10px">
+        <button class="btn" id="download-report-btn" onclick="downloadFinancialReport()" style="background:#fff;border:1.5px solid #1a3d2b;color:#1a3d2b">📄 Download Report</button>
         <button class="btn btn-income" onclick="openForm('income')">💵 Record Income</button>
         <button class="btn btn-expense" onclick="openForm('expense')">🧾 Record Expense</button>
       </div>
@@ -279,6 +280,59 @@
             <div class="ps-stat-value" id="total-expense">KES 0</div>
           </div>
         </div>
+      </div>
+
+      <!-- ══════════════════════════
+           SIMPLE BALANCE SHEET
+      ══════════════════════════ -->
+      <div class="profit-summary" style="margin-top:16px">
+        <div class="ps-top">
+          <div>
+            <div class="ps-label">Net Worth</div>
+            <div class="ps-value" id="net-worth">KES 0</div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn" onclick="openBalanceForm('asset')" style="background:#2d6a4f;color:#fff;font-size:12px;padding:8px 14px">➕ Add Asset</button>
+            <button class="btn" onclick="openBalanceForm('liability')" style="background:#e24b4a;color:#fff;font-size:12px;padding:8px 14px">➕ Add Liability</button>
+          </div>
+        </div>
+        <div class="ps-bottom">
+          <div class="ps-stat income">
+            <div class="ps-stat-label">🏦 Total Assets</div>
+            <div class="ps-stat-value" id="total-assets">KES 0</div>
+          </div>
+          <div class="ps-stat expense">
+            <div class="ps-stat-label">📉 Total Liabilities</div>
+            <div class="ps-stat-value" id="total-liabilities">KES 0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add Asset / Liability form (hidden until opened) -->
+      <div class="add-form" id="balance-form">
+        <h3 id="balance-form-title">🏦 Add Asset</h3>
+        <div class="form-group">
+          <label>📝 Name</label>
+          <input type="text" id="bi-name" placeholder="e.g. Cash on hand, Loan from SACCO">
+        </div>
+        <div class="form-group">
+          <label>💰 Value (KES)</label>
+          <input type="number" id="bi-value" class="amount-input" placeholder="Enter value in KES" min="0">
+        </div>
+        <div class="form-group">
+          <label>📝 Notes (optional)</label>
+          <input type="text" id="bi-notes" placeholder="Any extra detail">
+        </div>
+        <button class="submit-btn income" id="submit-bi-btn" onclick="addBalanceItem()">✅ Save</button>
+      </div>
+
+      <!-- Balance sheet items list -->
+      <div class="tx-list-card">
+        <div class="tx-list-header">
+          <h4>🏦 Assets &amp; Liabilities</h4>
+          <span id="bi-count" style="font-size:12px;color:#888"></span>
+        </div>
+        <div id="bi-list"><div class="spinner"></div></div>
       </div>
 
       <!-- ══════════════════════════
@@ -691,6 +745,149 @@
   }
 
   loadRecords();
+  loadBalanceSheet();
+
+
+  // ═══════════════════════════════════
+  //  BALANCE SHEET (simple bookkeeping)
+  // ═══════════════════════════════════
+  let allBalanceItems = [];
+  let currentBiKind    = "asset";
+
+  function openBalanceForm(kind) {
+    currentBiKind = kind;
+    document.getElementById("balance-form").classList.add("open");
+    document.getElementById("balance-form-title").textContent =
+      kind === "asset" ? "🏦 Add Asset" : "📉 Add Liability";
+    const btn = document.getElementById("submit-bi-btn");
+    btn.className   = "submit-btn " + (kind === "asset" ? "income" : "expense");
+    btn.textContent = kind === "asset" ? "✅ Save Asset" : "✅ Save Liability";
+    document.getElementById("balance-form").scrollIntoView({behavior:"smooth",block:"center"});
+  }
+
+  async function addBalanceItem() {
+    const name  = document.getElementById("bi-name").value.trim();
+    const value = parseFloat(document.getElementById("bi-value").value);
+    const notes = document.getElementById("bi-notes").value.trim();
+    const btn   = document.getElementById("submit-bi-btn");
+
+    if (!name) { showToast("⚠️ Please enter a name"); return; }
+    if (isNaN(value) || value <= 0) { showToast("⚠️ Please enter a value greater than 0"); return; }
+
+    btn.disabled = true;
+    btn.textContent = "⏳ Saving...";
+
+    try {
+      await fetch(API+"/balance-sheet", {
+        method:  "POST",
+        headers: {"Content-Type":"application/json","Authorization":"Bearer "+token},
+        body: JSON.stringify({ kind: currentBiKind, name: name, value: value, notes: notes })
+      });
+
+      document.getElementById("bi-name").value  = "";
+      document.getElementById("bi-value").value = "";
+      document.getElementById("bi-notes").value = "";
+      document.getElementById("balance-form").classList.remove("open");
+
+      showToast("✅ " + (currentBiKind==="asset"?"Asset":"Liability") + " saved!");
+      loadBalanceSheet();
+    } catch(e) {
+      showToast("❌ Could not save. Check backend is running.");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = currentBiKind==="asset" ? "✅ Save Asset" : "✅ Save Liability";
+    }
+  }
+
+  async function loadBalanceSheet() {
+    try {
+      const res = await fetch(API+"/balance-sheet", {
+        headers: {"Authorization":"Bearer "+token}
+      });
+      allBalanceItems = await res.json();
+      renderBalanceSheet();
+    } catch(e) {
+      document.getElementById("bi-list").innerHTML =
+        '<div class="empty"><div class="e-icon">❌</div><h3>Could not load balance sheet</h3></div>';
+    }
+  }
+
+  function renderBalanceSheet() {
+    const assets      = allBalanceItems.filter(i => i.kind === "asset");
+    const liabilities = allBalanceItems.filter(i => i.kind === "liability");
+    const totalAssets      = assets.reduce((s,i)=>s+i.value,0);
+    const totalLiabilities = liabilities.reduce((s,i)=>s+i.value,0);
+    const netWorth = totalAssets - totalLiabilities;
+
+    document.getElementById("total-assets").textContent      = "KES " + Math.round(totalAssets).toLocaleString("en-KE");
+    document.getElementById("total-liabilities").textContent = "KES " + Math.round(totalLiabilities).toLocaleString("en-KE");
+    const nwEl = document.getElementById("net-worth");
+    nwEl.textContent = "KES " + Math.round(netWorth).toLocaleString("en-KE");
+    nwEl.className   = "ps-value" + (netWorth < 0 ? " negative" : "");
+
+    document.getElementById("bi-count").textContent =
+      allBalanceItems.length + " item" + (allBalanceItems.length!==1?"s":"");
+
+    if (!allBalanceItems.length) {
+      document.getElementById("bi-list").innerHTML =
+        `<div class="empty"><div class="e-icon">🏦</div><h3>No assets or liabilities yet</h3><p>Click "Add Asset" or "Add Liability" above to get started</p></div>`;
+      return;
+    }
+
+    const sorted = [...allBalanceItems].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    document.getElementById("bi-list").innerHTML = sorted.map(i => `
+      <div class="tx-item">
+        <div class="tx-icon ${i.kind==='asset'?'income':'expense'}">${i.kind==='asset'?'🏦':'📉'}</div>
+        <div class="tx-info">
+          <div class="tx-category">${escapeHtml(i.name)}</div>
+          ${i.notes ? `<div class="tx-desc">${escapeHtml(i.notes)}</div>` : ""}
+        </div>
+        <div class="tx-amount ${i.kind==='asset'?'income':'expense'}">
+          ${i.kind==='asset'?'+':'−'} KES ${Math.round(i.value).toLocaleString()}
+        </div>
+        <button class="tx-delete" onclick="deleteBalanceItem(${i.id})">🗑️</button>
+      </div>`).join("");
+  }
+
+  async function deleteBalanceItem(id) {
+    if (!confirm("Delete this item?")) return;
+    try {
+      await fetch(API+"/balance-sheet/"+id, {
+        method:"DELETE",
+        headers:{"Authorization":"Bearer "+token}
+      });
+      showToast("🗑️ Item deleted");
+      loadBalanceSheet();
+    } catch(e) { showToast("❌ Could not delete"); }
+  }
+
+
+  // ═══════════════════════════════════
+  //  DOWNLOAD FINANCIAL REPORT (PDF)
+  //  Combines P&L + Balance Sheet — useful
+  //  for grant applications and loan requests.
+  // ═══════════════════════════════════
+  async function downloadFinancialReport() {
+    const btn = document.getElementById("download-report-btn");
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "⏳ Generating...";
+    try {
+      const res  = await fetch(API+"/financial-report", {
+        headers: {"Authorization":"Bearer "+token}
+      });
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      window.open(API + data.downloadUrl, "_blank");
+      showToast("📄 Financial report ready!");
+    } catch(e) {
+      showToast("❌ Could not generate report. Check backend is running.");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = original;
+    }
+  }
 </script>
 <script src="../js/app.js"></script>
 <script src="../js/notifications.js"></script>

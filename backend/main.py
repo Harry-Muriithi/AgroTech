@@ -96,6 +96,7 @@ class Farmer(Base):
     tasks      = relationship("Task",          back_populates="farmer", cascade="all, delete")
     inventory  = relationship("InventoryItem", back_populates="farmer", cascade="all, delete")
     profits    = relationship("ProfitRecord",  back_populates="farmer", cascade="all, delete")
+    balance_items = relationship("BalanceItem", back_populates="farmer", cascade="all, delete")
     crops      = relationship("Crop",          back_populates="farmer", cascade="all, delete")
 
 
@@ -173,6 +174,23 @@ class ProfitRecord(Base):
     date        = Column(String)     # "YYYY-MM-DD"
     created_at  = Column(DateTime, default=datetime.utcnow)
     farmer      = relationship("Farmer", back_populates="profits")
+
+
+class BalanceItem(Base):
+    """
+    The balance_items table.
+    One row = one thing the farmer owns (asset) or owes (liability).
+    Powers a simple balance sheet: Net Worth = Assets - Liabilities.
+    """
+    __tablename__ = "balance_items"
+    id          = Column(Integer, primary_key=True, index=True)
+    farmer_id   = Column(Integer, ForeignKey("farmers.id"), nullable=False)
+    kind        = Column(String)     # "asset" or "liability"
+    name        = Column(String)     # e.g. "Cash on hand", "Loan from SACCO"
+    value       = Column(Float)
+    notes       = Column(String, default="")
+    created_at  = Column(DateTime, default=datetime.utcnow)
+    farmer      = relationship("Farmer", back_populates="balance_items")
 
 
 class Crop(Base):
@@ -269,6 +287,12 @@ class ProfitRequest(BaseModel):
     description: Optional[str] = ""
     crop:        Optional[str] = ""
     date:        str
+
+class BalanceItemRequest(BaseModel):
+    kind:  str    # "asset" or "liability"
+    name:  str
+    value: float
+    notes: Optional[str] = ""
 
 class CropRequest(BaseModel):
     name:         str
@@ -778,6 +802,170 @@ def generate_pdf_report(disease_name, confidence, plant_name, info, farmer_name=
     return filename
 
 
+def generate_financial_report_pdf(farmer_name, income_records, expense_records, assets, liabilities):
+    """
+    Builds a downloadable financial report PDF: Profit & Loss statement
+    plus a simple Balance Sheet. Designed to be presentable enough for
+    grant applications, loan requests, or cooperative membership.
+    Returns the filename (not the full path).
+    """
+    report_id = str(uuid.uuid4())[:8].upper()
+    filename  = f"AgroTech_Financial_Report_{report_id}.pdf"
+    filepath  = os.path.join(PDF_FOLDER, filename)
+
+    doc    = SimpleDocTemplate(filepath, pagesize=A4,
+                               rightMargin=inch, leftMargin=inch,
+                               topMargin=inch, bottomMargin=inch)
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'],
+                                 fontSize=20, textColor=colors.HexColor('#1B4332'), spaceAfter=4)
+    h_style     = ParagraphStyle('H', parent=styles['Heading2'],
+                                 fontSize=13, textColor=colors.HexColor('#1B4332'),
+                                 spaceBefore=18, spaceAfter=6)
+    f_style     = ParagraphStyle('F', parent=styles['Normal'],
+                                 fontSize=9, textColor=colors.grey)
+
+    story = []
+    story.append(Paragraph("AgroTech Financial Report", title_style))
+    story.append(Paragraph(
+        f"Farmer: <b>{farmer_name}</b>  |  Report ID: <b>{report_id}</b>  |  "
+        f"Generated: <b>{datetime.now().strftime('%d %B %Y, %I:%M %p')}</b>",
+        styles['Normal']))
+    story.append(Spacer(1, 16))
+
+    # ── PROFIT & LOSS STATEMENT ─────────────────────────
+    total_income  = sum(r.amount for r in income_records)
+    total_expense = sum(r.amount for r in expense_records)
+    net_profit    = total_income - total_expense
+
+    story.append(Paragraph("Profit &amp; Loss Statement", h_style))
+    pl_data = [["", "Amount (KES)"]]
+    pl_data.append(["Total Income", f"{total_income:,.2f}"])
+    pl_data.append(["Total Expenses", f"{total_expense:,.2f}"])
+    pl_data.append(["Net Profit / Loss", f"{net_profit:,.2f}"])
+
+    pl_tbl = Table(pl_data, colWidths=[3.5*inch, 2.5*inch])
+    pl_tbl.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1B4332')),
+        ('TEXTCOLOR',  (0,0), (-1,0), colors.white),
+        ('ALIGN',      (1,0), (1,-1), 'RIGHT'),
+        ('GRID',       (0,0), (-1,-1), 0.5, colors.HexColor('#CCDDCC')),
+        ('FONTSIZE',   (0,0), (-1,-1), 10),
+        ('PADDING',    (0,0), (-1,-1), 8),
+        ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#E8F5E9')),
+        ('FONTNAME',   (0,-1), (-1,-1), 'Helvetica-Bold'),
+    ]))
+    story.append(pl_tbl)
+
+    # Income breakdown by category
+    if income_records:
+        story.append(Spacer(1, 10))
+        story.append(Paragraph("Income by Category", ParagraphStyle('h4', fontSize=10, textColor=colors.HexColor('#1B4332'), spaceAfter=4)))
+        income_by_cat = {}
+        for r in income_records:
+            income_by_cat[r.category] = income_by_cat.get(r.category, 0) + r.amount
+        cat_data = [[cat, f"{amt:,.2f}"] for cat, amt in sorted(income_by_cat.items(), key=lambda x:-x[1])]
+        cat_tbl = Table([["Category","Amount (KES)"]] + cat_data, colWidths=[3.5*inch, 2.5*inch])
+        cat_tbl.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#DDEEDD')),
+            ('ALIGN', (1,0), (1,-1), 'RIGHT'),
+            ('GRID', (0,0), (-1,-1), 0.4, colors.HexColor('#DDDDDD')),
+            ('FONTSIZE', (0,0), (-1,-1), 9),
+            ('PADDING', (0,0), (-1,-1), 6),
+        ]))
+        story.append(cat_tbl)
+
+    # Expense breakdown by category
+    if expense_records:
+        story.append(Spacer(1, 10))
+        story.append(Paragraph("Expenses by Category", ParagraphStyle('h4', fontSize=10, textColor=colors.HexColor('#1B4332'), spaceAfter=4)))
+        expense_by_cat = {}
+        for r in expense_records:
+            expense_by_cat[r.category] = expense_by_cat.get(r.category, 0) + r.amount
+        cat_data = [[cat, f"{amt:,.2f}"] for cat, amt in sorted(expense_by_cat.items(), key=lambda x:-x[1])]
+        cat_tbl = Table([["Category","Amount (KES)"]] + cat_data, colWidths=[3.5*inch, 2.5*inch])
+        cat_tbl.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#FFE0E0')),
+            ('ALIGN', (1,0), (1,-1), 'RIGHT'),
+            ('GRID', (0,0), (-1,-1), 0.4, colors.HexColor('#DDDDDD')),
+            ('FONTSIZE', (0,0), (-1,-1), 9),
+            ('PADDING', (0,0), (-1,-1), 6),
+        ]))
+        story.append(cat_tbl)
+
+    # ── SIMPLE BALANCE SHEET ─────────────────────────────
+    total_assets      = sum(a.value for a in assets)
+    total_liabilities = sum(l.value for l in liabilities)
+    net_worth         = total_assets - total_liabilities
+
+    story.append(Paragraph("Simple Balance Sheet", h_style))
+
+    bs_rows = [["ASSETS", "Value (KES)"]]
+    if assets:
+        for a in assets:
+            bs_rows.append([a.name, f"{a.value:,.2f}"])
+    else:
+        bs_rows.append(["No assets recorded", "0.00"])
+    bs_rows.append(["Total Assets", f"{total_assets:,.2f}"])
+
+    assets_tbl = Table(bs_rows, colWidths=[3.5*inch, 2.5*inch])
+    assets_tbl.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1B4332')),
+        ('TEXTCOLOR',  (0,0), (-1,0), colors.white),
+        ('ALIGN', (1,0), (1,-1), 'RIGHT'),
+        ('GRID', (0,0), (-1,-1), 0.4, colors.HexColor('#DDDDDD')),
+        ('FONTSIZE', (0,0), (-1,-1), 9.5),
+        ('PADDING', (0,0), (-1,-1), 7),
+        ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#E8F5E9')),
+        ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'),
+    ]))
+    story.append(assets_tbl)
+    story.append(Spacer(1, 10))
+
+    li_rows = [["LIABILITIES", "Value (KES)"]]
+    if liabilities:
+        for l in liabilities:
+            li_rows.append([l.name, f"{l.value:,.2f}"])
+    else:
+        li_rows.append(["No liabilities recorded", "0.00"])
+    li_rows.append(["Total Liabilities", f"{total_liabilities:,.2f}"])
+
+    li_tbl = Table(li_rows, colWidths=[3.5*inch, 2.5*inch])
+    li_tbl.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1B4332')),
+        ('TEXTCOLOR',  (0,0), (-1,0), colors.white),
+        ('ALIGN', (1,0), (1,-1), 'RIGHT'),
+        ('GRID', (0,0), (-1,-1), 0.4, colors.HexColor('#DDDDDD')),
+        ('FONTSIZE', (0,0), (-1,-1), 9.5),
+        ('PADDING', (0,0), (-1,-1), 7),
+        ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#FFEBEE')),
+        ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'),
+    ]))
+    story.append(li_tbl)
+    story.append(Spacer(1, 10))
+
+    nw_tbl = Table([["NET WORTH (Assets − Liabilities)", f"KES {net_worth:,.2f}"]], colWidths=[3.5*inch, 2.5*inch])
+    nw_tbl.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#1B4332')),
+        ('TEXTCOLOR',  (0,0), (-1,-1), colors.white),
+        ('ALIGN', (1,0), (1,-1), 'RIGHT'),
+        ('FONTSIZE', (0,0), (-1,-1), 11),
+        ('FONTNAME', (0,0), (-1,-1), 'Helvetica-Bold'),
+        ('PADDING', (0,0), (-1,-1), 9),
+    ]))
+    story.append(nw_tbl)
+
+    story.append(Spacer(1, 24))
+    story.append(Paragraph(
+        "Generated by AgroTech AI Platform. This is a self-reported financial summary "
+        "prepared by the farmer and has not been independently audited.",
+        f_style))
+
+    doc.build(story)
+    return filename
+
+
 # ═══════════════════════════════════════════════════════════
 #  HELPER: Convert farmer DB object → dictionary for JSON
 # ═══════════════════════════════════════════════════════════
@@ -1280,6 +1468,66 @@ def delete_profit(record_id: int, farmer: Farmer = Depends(get_current_farmer),
         raise HTTPException(status_code=404, detail="Record not found.")
     db.delete(record); db.commit()
     return {"success": True}
+
+
+# ── SIMPLE BOOKKEEPING: BALANCE SHEET ────────────────────────
+# Assets = things the farmer owns (cash on hand, inventory value, equipment)
+# Liabilities = things the farmer owes (loans, unpaid supplier bills)
+# Net Worth = Assets - Liabilities
+
+@app.get("/balance-sheet")
+def get_balance_sheet(farmer: Farmer = Depends(get_current_farmer), db: Session = Depends(get_db)):
+    items = db.query(BalanceItem)\
+              .filter(BalanceItem.farmer_id == farmer.id)\
+              .order_by(BalanceItem.created_at.desc()).all()
+    return [{
+        "id": i.id, "kind": i.kind, "name": i.name,
+        "value": i.value, "notes": i.notes,
+        "createdAt": i.created_at.isoformat()
+    } for i in items]
+
+
+@app.post("/balance-sheet")
+def add_balance_item(req: BalanceItemRequest, farmer: Farmer = Depends(get_current_farmer),
+                      db: Session = Depends(get_db)):
+    if req.kind not in ("asset", "liability"):
+        raise HTTPException(status_code=400, detail="kind must be 'asset' or 'liability'.")
+    item = BalanceItem(
+        farmer_id=farmer.id, kind=req.kind, name=req.name,
+        value=req.value, notes=req.notes
+    )
+    db.add(item); db.commit(); db.refresh(item)
+    return {"success": True, "id": item.id}
+
+
+@app.delete("/balance-sheet/{item_id}")
+def delete_balance_item(item_id: int, farmer: Farmer = Depends(get_current_farmer),
+                         db: Session = Depends(get_db)):
+    item = db.query(BalanceItem).filter(
+        BalanceItem.id == item_id, BalanceItem.farmer_id == farmer.id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found.")
+    db.delete(item); db.commit()
+    return {"success": True}
+
+
+@app.get("/financial-report")
+def get_financial_report(farmer: Farmer = Depends(get_current_farmer), db: Session = Depends(get_db)):
+    """
+    Generates a downloadable PDF financial report (P&L + Balance Sheet)
+    covering ALL of the farmer's recorded transactions and balance items.
+    Farmers can use this document for grant applications, loan requests,
+    or cooperative membership.
+    """
+    records    = db.query(ProfitRecord).filter(ProfitRecord.farmer_id == farmer.id).all()
+    income     = [r for r in records if r.type == "income"]
+    expense    = [r for r in records if r.type == "expense"]
+    items      = db.query(BalanceItem).filter(BalanceItem.farmer_id == farmer.id).all()
+    assets     = [i for i in items if i.kind == "asset"]
+    liabilities= [i for i in items if i.kind == "liability"]
+
+    filename = generate_financial_report_pdf(farmer.name, income, expense, assets, liabilities)
+    return {"success": True, "filename": filename, "downloadUrl": f"/download/{filename}"}
 
 
 # ── CROPS ─────────────────────────────────────────────────
