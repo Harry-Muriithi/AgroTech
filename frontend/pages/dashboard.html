@@ -96,6 +96,11 @@
     @keyframes spin{to{transform:rotate(360deg)}}
     .line-chart-svg{width:100%;height:100%;overflow:visible}
     .line-chart-labels{display:flex;justify-content:space-between;margin-top:4px;font-size:9px;color:#999}
+    .combo-chart-wrap{width:100%;height:150px}
+    .combo-legend{display:flex;gap:14px;margin-bottom:6px;font-size:11px;color:#666}
+    .combo-legend-item{display:flex;align-items:center;gap:5px}
+    .combo-legend-dot{width:9px;height:9px;border-radius:2px}
+    .combo-legend-line{width:14px;height:2px;border-radius:2px;margin-right:2px}
     .farm-health-wrap{display:flex;align-items:center;gap:24px;flex-wrap:wrap;padding:8px 0}
     .fh-breakdown{flex:1;min-width:220px;display:flex;flex-direction:column;gap:12px}
     .fh-row{display:flex;align-items:center;gap:10px}
@@ -103,6 +108,10 @@
     .fh-bar-track{flex:1;height:8px;background:#eef2ee;border-radius:6px;overflow:hidden}
     .fh-bar-fill{height:100%;border-radius:6px;transition:width 0.8s}
     .fh-val{width:38px;text-align:right;font-size:12px;font-weight:700;color:#1a3d2b}
+    .fin-position-badge{margin-top:14px;padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+    .fin-position-badge.healthy{background:#e8f5e9;color:#1b5e20}
+    .fin-position-badge.tight{background:#fff8e1;color:#8a6d00}
+    .fin-position-badge.at_risk{background:#fcebeb;color:#c62828}
   </style>
   <link rel="stylesheet" href="../css/mobile.css">
 </head>
@@ -205,12 +214,14 @@
 
       <div class="two-col">
         <div class="card">
-          <div class="card-title">Financial Trend — Last 30 Days <a href="profit.html">View all →</a></div>
-          <div class="chart-wrap" id="financial-trend-chart"><div class="spinner"></div></div>
+          <div class="card-title">Financial Trend — Last 6 Months <a href="profit.html">View all →</a></div>
+          <div class="combo-legend" id="financial-legend"></div>
+          <div class="combo-chart-wrap" id="financial-trend-chart"><div class="spinner"></div></div>
         </div>
         <div class="card">
-          <div class="card-title">Tasks Completed — Last 14 Days <a href="schedule.html">View all →</a></div>
-          <div class="chart-wrap" id="task-trend-chart"><div class="spinner"></div></div>
+          <div class="card-title">Tasks — Last 6 Months <a href="schedule.html">View all →</a></div>
+          <div class="combo-legend" id="task-legend"></div>
+          <div class="combo-chart-wrap" id="task-trend-chart"><div class="spinner"></div></div>
         </div>
       </div>
 
@@ -241,7 +252,16 @@
               <div class="fh-bar-track"><div class="fh-bar-fill" id="fh-stock-bar" style="width:0%;background:#f4a261"></div></div>
               <div class="fh-val" id="fh-stock-val">--%</div>
             </div>
+            <div class="fh-row">
+              <div class="fh-label">💰 Financial Position</div>
+              <div class="fh-bar-track"><div class="fh-bar-fill" id="fh-fin-bar" style="width:0%;background:#9d7be0"></div></div>
+              <div class="fh-val" id="fh-fin-val">--%</div>
+            </div>
           </div>
+        </div>
+        <div class="fin-position-badge" id="fin-position-badge" style="display:none">
+          <span id="fin-position-icon"></span>
+          <span id="fin-position-text"></span>
         </div>
       </div>
 
@@ -336,11 +356,25 @@
         document.getElementById("donut-pct").textContent = Math.round(dp*100)+"%";
       }
 
-      // ── Financial Trend (30-day cumulative net profit) ──
-      renderLineChart("financial-trend-chart", s.profit.trend, "cumulative", "#52b788", v => "KES "+Math.round(v).toLocaleString());
+      // ── Financial Trend (6 months: income/expense bars + net profit line) ──
+      renderComboChart("financial-trend-chart", "financial-legend", s.profit.trend, {
+        bars: [
+          {key:"income",  color:"#52b788", label:"Income"},
+          {key:"expense", color:"#e24b4a", label:"Expense"}
+        ],
+        line: {key:"net", color:"#1a3d2b", label:"Net Profit"},
+        formatValue: v => "KES "+Math.round(v).toLocaleString()
+      });
 
-      // ── Task Completion Trend (14-day) ──
-      renderLineChart("task-trend-chart", s.tasks.trend, "completed", "#4a90d9", v => v+" done");
+      // ── Task Trend (6 months: completed/overdue bars + completion rate line) ──
+      renderComboChart("task-trend-chart", "task-legend", s.tasks.trend, {
+        bars: [
+          {key:"completed", color:"#4a90d9", label:"Completed"},
+          {key:"overdue",   color:"#e24b4a", label:"Overdue"}
+        ],
+        line: {key:"completionRate", color:"#1a3d2b", label:"Completion %", isPercent:true},
+        formatValue: v => v+" tasks"
+      });
 
       // ── Farm Health Score ──
       const fh = s.farmHealth;
@@ -355,53 +389,95 @@
       document.getElementById("fh-task-val").textContent  = fh.taskHealth+"%";
       document.getElementById("fh-stock-bar").style.width = fh.stockHealth+"%";
       document.getElementById("fh-stock-val").textContent = fh.stockHealth+"%";
+      document.getElementById("fh-fin-bar").style.width   = fh.financialHealth+"%";
+      document.getElementById("fh-fin-val").textContent   = fh.financialHealth+"%";
+
+      // ── Financial Position badge ("healthy" / "tight" / "at_risk") ──
+      const pos = fh.financialPosition;
+      const badge = document.getElementById("fin-position-badge");
+      const icons = {healthy:"✅", tight:"⚠️", at_risk:"🚨"};
+      badge.className = "fin-position-badge " + pos.status;
+      badge.style.display = "flex";
+      document.getElementById("fin-position-icon").textContent = icons[pos.status] || "ℹ️";
+      document.getElementById("fin-position-text").textContent = pos.label;
     } catch(e) { console.error(e); }
   }
 
 
   // ═══════════════════════════════════
-  //  REUSABLE SVG LINE CHART
-  //  data: array of objects, each with a .label and the given valueKey
-  //  Draws a smooth-ish line with a filled area beneath it, plus a
-  //  handful of x-axis labels so the chart doesn't get too crowded.
+  //  REUSABLE SVG COMBO CHART (bars + line)
+  //  data: array of monthly objects with .label and the given keys
+  //  opts.bars: [{key, color, label}, ...] — grouped bars per month
+  //  opts.line: {key, color, label, isPercent} — overlaid line (own scale if %)
   // ═══════════════════════════════════
-  function renderLineChart(elId, data, valueKey, color, formatValue) {
+  function renderComboChart(elId, legendId, data, opts) {
     const el = document.getElementById(elId);
-    if (!data || !data.length) {
-      el.innerHTML = '<div class="empty" style="padding:10px"><div class="e-icon">📈</div>No data yet</div>';
+    const legendEl = document.getElementById(legendId);
+
+    if (!data || !data.length || data.every(d => opts.bars.every(b => !d[b.key]))) {
+      el.innerHTML = '<div class="empty" style="padding:10px"><div class="e-icon">📊</div>No data yet — start recording to see trends</div>';
+      legendEl.innerHTML = "";
       return;
     }
 
-    const values = data.map(d => d[valueKey]);
-    const min = Math.min(...values, 0);
-    const max = Math.max(...values, 1);
-    const range = (max - min) || 1;
+    // Legend
+    legendEl.innerHTML =
+      opts.bars.map(b => `<div class="combo-legend-item"><div class="combo-legend-dot" style="background:${b.color}"></div>${b.label}</div>`).join("") +
+      `<div class="combo-legend-item"><div class="combo-legend-line" style="background:${opts.line.color}"></div>${opts.line.label}</div>`;
 
-    const w = 100, h = 70, padTop = 8, padBottom = 4;
+    const w = 300, h = 150, padTop = 10, padBottom = 18, padSide = 4;
     const usableH = h - padTop - padBottom;
+    const groupW = (w - padSide*2) / data.length;
+    const barW = (groupW * 0.6) / opts.bars.length;
 
-    const points = data.map((d, i) => {
-      const x = (i / (data.length - 1 || 1)) * w;
-      const y = padTop + usableH - ((d[valueKey] - min) / range) * usableH;
-      return [x, y];
+    const allBarVals = data.flatMap(d => opts.bars.map(b => d[b.key] || 0));
+    const barMax = Math.max(...allBarVals, 1);
+
+    // Line uses its own scale (0-100 if percent, else same range as bars)
+    const lineVals = data.map(d => d[opts.line.key] || 0);
+    const lineMax = opts.line.isPercent ? 100 : Math.max(...lineVals.map(Math.abs), barMax, 1);
+    const lineMin = opts.line.isPercent ? 0 : Math.min(...lineVals, 0);
+    const lineRange = (lineMax - lineMin) || 1;
+
+    // Bars
+    let barsHtml = "";
+    data.forEach((d, gi) => {
+      const groupX = padSide + gi * groupW + groupW * 0.2;
+      opts.bars.forEach((b, bi) => {
+        const val = d[b.key] || 0;
+        const barH = (val / barMax) * usableH;
+        const x = groupX + bi * barW;
+        const y = padTop + usableH - barH;
+        barsHtml += `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${(barW*0.8).toFixed(2)}" height="${Math.max(barH,0.5).toFixed(2)}" fill="${b.color}" rx="1"></rect>`;
+      });
     });
 
-    const linePath = points.map((p, i) => (i===0?"M":"L") + p[0].toFixed(2) + "," + p[1].toFixed(2)).join(" ");
-    const areaPath = linePath + ` L${w},${h} L0,${h} Z`;
+    // Line (own scale)
+    const linePoints = data.map((d, i) => {
+      const x = padSide + i * groupW + groupW / 2;
+      const val = d[opts.line.key] || 0;
+      const y = padTop + usableH - ((val - lineMin) / lineRange) * usableH;
+      return [x, y];
+    });
+    const linePath = linePoints.map((p, i) => (i===0?"M":"L") + p[0].toFixed(2) + "," + p[1].toFixed(2)).join(" ");
 
-    const lastVal = values[values.length - 1];
+    // X-axis month labels
+    const labelsHtml = data.map((d, i) => {
+      const x = padSide + i * groupW + groupW / 2;
+      return `<text x="${x.toFixed(2)}" y="${h-4}" text-anchor="middle" font-size="8" fill="#999">${d.label}</text>`;
+    }).join("");
+
+    const lastLine = data[data.length-1][opts.line.key] || 0;
 
     el.innerHTML = `
-      <svg class="line-chart-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
-        <path d="${areaPath}" fill="${color}" opacity="0.12"></path>
-        <path d="${linePath}" fill="none" stroke="${color}" stroke-width="1.6" vector-effect="non-scaling-stroke"></path>
-        ${points.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="0.9" fill="${color}"></circle>`).join("")}
+      <svg class="line-chart-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="height:${h}px">
+        ${barsHtml}
+        <path d="${linePath}" fill="none" stroke="${opts.line.color}" stroke-width="2" vector-effect="non-scaling-stroke"></path>
+        ${linePoints.map(p => `<circle cx="${p[0].toFixed(2)}" cy="${p[1].toFixed(2)}" r="2.2" fill="${opts.line.color}"></circle>`).join("")}
+        ${labelsHtml}
       </svg>
-      <div style="text-align:right;font-size:12px;font-weight:700;color:${color};margin-top:2px">${formatValue(lastVal)}</div>
-      <div class="line-chart-labels">
-        <span>${data[0].label}</span>
-        <span>${data[Math.floor(data.length/2)].label}</span>
-        <span>${data[data.length-1].label}</span>
+      <div style="text-align:right;font-size:11px;font-weight:700;color:${opts.line.color};margin-top:2px">
+        ${opts.line.label}: ${opts.line.isPercent ? lastLine+"%" : opts.formatValue(lastLine)}
       </div>`;
   }
 

@@ -1602,54 +1602,101 @@ def get_stats(farmer: Farmer = Depends(get_current_farmer), db: Session = Depend
             disease_counts[s.disease] += 1
     top_diseases = sorted(disease_counts.items(), key=lambda x: -x[1])[:5]
 
-    # ── FINANCIAL TREND (last 30 days, cumulative net profit) ──
-    daily_net: dict = defaultdict(float)
+    # ── FINANCIAL TREND (last 6 months — bars: income/expense, line: net) ──
+    monthly_income:  dict = defaultdict(float)
+    monthly_expense: dict = defaultdict(float)
     for r in profits:
         try:
-            amt = r.amount if r.type == "income" else -r.amount
-            daily_net[r.date] += amt
+            month_key = r.date[:7]  # "YYYY-MM"
+            if r.type == "income":
+                monthly_income[month_key] += r.amount
+            else:
+                monthly_expense[month_key] += r.amount
         except Exception:
             pass
 
-    financial_trend = []
-    running_total = 0.0
-    # Anything before the 30-day window still counts toward the running total,
-    # so the trend line starts from the farmer's real cumulative position.
-    for r in profits:
-        if r.date < (datetime.utcnow() - timedelta(days=30)).strftime("%Y-%m-%d"):
-            running_total += r.amount if r.type == "income" else -r.amount
-    for i in range(29, -1, -1):
-        d   = (datetime.utcnow() - timedelta(days=i)).strftime("%Y-%m-%d")
-        lbl = (datetime.utcnow() - timedelta(days=i)).strftime("%d %b")
-        running_total += daily_net.get(d, 0)
-        financial_trend.append({"date": d, "label": lbl, "cumulative": round(running_total, 2)})
+    def _month_key_label(months_back):
+        now = datetime.utcnow()
+        total = now.year * 12 + (now.month - 1) - months_back
+        y, m = divmod(total, 12)
+        m += 1
+        return f"{y:04d}-{m:02d}", datetime(y, m, 1).strftime("%b")
 
-    # ── TASK COMPLETION TREND (last 14 days) ──
-    completed_by_day: dict = defaultdict(int)
+    financial_trend = []
+    for i in range(5, -1, -1):
+        month_key, lbl = _month_key_label(i)
+        inc = round(monthly_income.get(month_key, 0), 2)
+        exp = round(monthly_expense.get(month_key, 0), 2)
+        financial_trend.append({"month": month_key, "label": lbl, "income": inc, "expense": exp, "net": round(inc - exp, 2)})
+
+    # Financial position: compare last 30 days net profit against the
+    # prior 30 days, so a farmer sees whether things are improving or not.
+    def _sum_between(days_ago_start, days_ago_end):
+        start = (datetime.utcnow() - timedelta(days=days_ago_start)).strftime("%Y-%m-%d")
+        end   = (datetime.utcnow() - timedelta(days=days_ago_end)).strftime("%Y-%m-%d")
+        total = 0.0
+        for r in profits:
+            if start <= r.date <= end:
+                total += r.amount if r.type == "income" else -r.amount
+        return total
+
+    last_30_net = _sum_between(30, 0)
+    prev_30_net = _sum_between(60, 31)
+    last_30_income = sum(r.amount for r in profits if (datetime.utcnow() - timedelta(days=30)).strftime("%Y-%m-%d") <= r.date and r.type == "income")
+
+    if last_30_net >= 0:
+        fin_status, fin_label = "healthy", "Profitable — income is covering expenses"
+    elif last_30_income > 0 and abs(last_30_net) < last_30_income * 0.3:
+        fin_status, fin_label = "tight", "Tight — expenses are close to income"
+    else:
+        fin_status, fin_label = "at_risk", "At risk — expenses are significantly higher than income"
+
+    financial_position = {
+        "status": fin_status,
+        "label": fin_label,
+        "last30Net": round(last_30_net, 2),
+        "prev30Net": round(prev_30_net, 2),
+        "improving": last_30_net > prev_30_net
+    }
+
+    # ── TASK COMPLETION TREND (last 6 months — bars: completed/overdue, line: completion rate) ──
+    monthly_completed: dict = defaultdict(int)
+    monthly_overdue:   dict = defaultdict(int)
+    monthly_total:     dict = defaultdict(int)
     for t in tasks:
-        if t.done:
-            # Tasks don't store a "completed_at", so we use scheduled_date
-            # as the best available proxy for when the work happened.
-            completed_by_day[t.scheduled_date] += 1
+        try:
+            month_key = t.scheduled_date[:7]
+            monthly_total[month_key] += 1
+            if t.done:
+                monthly_completed[month_key] += 1
+            elif t.scheduled_date < today:
+                monthly_overdue[month_key] += 1
+        except Exception:
+            pass
 
     task_trend = []
-    for i in range(13, -1, -1):
-        d   = (datetime.utcnow() - timedelta(days=i)).strftime("%Y-%m-%d")
-        lbl = (datetime.utcnow() - timedelta(days=i)).strftime("%d %b")
-        task_trend.append({"date": d, "label": lbl, "completed": completed_by_day.get(d, 0)})
+    for i in range(5, -1, -1):
+        month_key, lbl = _month_key_label(i)
+        comp  = monthly_completed.get(month_key, 0)
+        over  = monthly_overdue.get(month_key, 0)
+        tot   = monthly_total.get(month_key, 0)
+        rate  = round((comp / tot) * 100) if tot > 0 else 0
+        task_trend.append({"month": month_key, "label": lbl, "completed": comp, "overdue": over, "completionRate": rate})
 
     # ── FARM HEALTH SCORE (0-100 composite) ──
-    # Blends three signals a farmer actually cares about day to day:
-    #   1. Crop health   — % of scans that came back healthy
+    # Blends four signals a farmer actually cares about day to day:
+    #   1. Crop health     — % of scans that came back healthy
     #   2. Task discipline — % of tasks completed on time / not overdue
     #   3. Stock readiness — % of inventory items NOT low/out of stock
+    #   4. Financial position — net profit healthy/tight/at risk (last 30 days)
     scan_health_pct = (sum(1 for s in scans if s.status == "healthy") / len(scans) * 100) if scans else 100
     non_overdue = sum(1 for t in tasks if t.done or t.scheduled_date >= today)
     task_health_pct = (non_overdue / len(tasks) * 100) if tasks else 100
     stock_ok = sum(1 for i in inventory if i.quantity > i.low_at)
     stock_health_pct = (stock_ok / len(inventory) * 100) if inventory else 100
+    fin_health_pct = {"healthy": 100, "tight": 55, "at_risk": 15}[fin_status]
 
-    farm_health_score = round((scan_health_pct + task_health_pct + stock_health_pct) / 3)
+    farm_health_score = round((scan_health_pct + task_health_pct + stock_health_pct + fin_health_pct) / 4)
 
     return {
         "scans": {
@@ -1669,7 +1716,8 @@ def get_stats(farmer: Farmer = Depends(get_current_farmer), db: Session = Depend
             "totalExpense": sum(r.amount for r in profits if r.type == "expense"),
             "netProfit":    sum(r.amount for r in profits if r.type == "income") -
                             sum(r.amount for r in profits if r.type == "expense"),
-            "trend":        financial_trend
+            "trend":        financial_trend,
+            "position":     financial_position
         },
         "tasks": {
             "total":   len(tasks),
@@ -1679,10 +1727,12 @@ def get_stats(farmer: Farmer = Depends(get_current_farmer), db: Session = Depend
             "trend":   task_trend
         },
         "farmHealth": {
-            "score":        farm_health_score,
-            "scanHealth":   round(scan_health_pct),
-            "taskHealth":   round(task_health_pct),
-            "stockHealth":  round(stock_health_pct)
+            "score":               farm_health_score,
+            "scanHealth":          round(scan_health_pct),
+            "taskHealth":          round(task_health_pct),
+            "stockHealth":         round(stock_health_pct),
+            "financialHealth":     round(fin_health_pct),
+            "financialPosition":   financial_position
         },
         "farmer": {
             "freePeriod":   is_free_period(farmer.registered_at),
