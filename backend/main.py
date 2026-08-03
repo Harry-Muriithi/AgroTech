@@ -84,7 +84,9 @@ class Farmer(Base):
     farm_size     = Column(Float,  default=0)         # in acres
     farm_scale    = Column(String, default="small")   # 'small' or 'large'
     registered_at = Column(DateTime, default=datetime.utcnow)
-    token         = Column(String, nullable=True)     # login session key
+    # NOTE: the old single 'token' column has been replaced by the
+    # auth_tokens table below, which supports multiple simultaneous
+    # sessions (e.g. phone + laptop logged in at the same time).
 
     # Password reset fields
     reset_code     = Column(String, nullable=True)    # 6-digit code sent via email
@@ -98,6 +100,7 @@ class Farmer(Base):
     profits    = relationship("ProfitRecord",  back_populates="farmer", cascade="all, delete")
     balance_items = relationship("BalanceItem", back_populates="farmer", cascade="all, delete")
     crops      = relationship("Crop",          back_populates="farmer", cascade="all, delete")
+    auth_tokens   = relationship("AuthToken",   back_populates="farmer", cascade="all, delete")
 
 
 class Scan(Base):
@@ -174,6 +177,24 @@ class ProfitRecord(Base):
     date        = Column(String)     # "YYYY-MM-DD"
     created_at  = Column(DateTime, default=datetime.utcnow)
     farmer      = relationship("Farmer", back_populates="profits")
+
+
+class AuthToken(Base):
+    """
+    The auth_tokens table.
+    One row = one active login session. A farmer can have several rows
+    at once (phone + laptop, etc.) — logging in on a new device creates
+    a NEW row instead of overwriting the old one, so other sessions stay
+    logged in.
+    """
+    __tablename__ = "auth_tokens"
+    id          = Column(Integer, primary_key=True, index=True)
+    farmer_id   = Column(Integer, ForeignKey("farmers.id"), nullable=False)
+    token       = Column(String, unique=True, index=True, nullable=False)
+    device_info = Column(String, default="")
+    created_at  = Column(DateTime, default=datetime.utcnow)
+    last_used   = Column(DateTime, default=datetime.utcnow)
+    farmer      = relationship("Farmer", back_populates="auth_tokens")
 
 
 class BalanceItem(Base):
@@ -335,10 +356,18 @@ def get_current_farmer(
     Reads the token from the request header and finds the farmer.
     Every protected endpoint uses this to know WHO is asking.
     If token is wrong/missing → returns 401 Unauthorized error.
+    Looks up the auth_tokens table (not a single column on Farmer),
+    so multiple devices can be logged in at once without kicking
+    each other out.
     """
     if not credentials:
         raise HTTPException(status_code=401, detail="Not logged in. Please log in first.")
-    farmer = db.query(Farmer).filter(Farmer.token == credentials.credentials).first()
+    token_row = db.query(AuthToken).filter(AuthToken.token == credentials.credentials).first()
+    if not token_row:
+        raise HTTPException(status_code=401, detail="Session expired. Please log in again.")
+    token_row.last_used = datetime.utcnow()
+    db.commit()
+    farmer = db.query(Farmer).filter(Farmer.id == token_row.farmer_id).first()
     if not farmer:
         raise HTTPException(status_code=401, detail="Session expired. Please log in again.")
     return farmer
@@ -353,7 +382,10 @@ def get_optional_farmer(
     """
     if not credentials:
         return None
-    return db.query(Farmer).filter(Farmer.token == credentials.credentials).first()
+    token_row = db.query(AuthToken).filter(AuthToken.token == credentials.credentials).first()
+    if not token_row:
+        return None
+    return db.query(Farmer).filter(Farmer.id == token_row.farmer_id).first()
 
 def get_farm_scale(farm_size: float) -> str:
     """
@@ -1041,7 +1073,6 @@ def register(req: RegisterRequest, request: Request, db: Session = Depends(get_d
             raise HTTPException(status_code=400, detail="This email is already registered.")
 
     scale  = get_farm_scale(req.farm_size or 0)
-    token  = make_token()
     farmer = Farmer(
         name          = req.name,
         phone         = req.phone,
@@ -1049,12 +1080,18 @@ def register(req: RegisterRequest, request: Request, db: Session = Depends(get_d
         password_hash = hash_password(req.password),
         county        = req.county or "Kenya",
         farm_size     = req.farm_size or 0,
-        farm_scale    = scale,
-        token         = token
+        farm_scale    = scale
     )
     db.add(farmer)
     db.commit()
     db.refresh(farmer)
+
+    token = make_token()
+    db.add(AuthToken(
+        farmer_id=farmer.id, token=token,
+        device_info=request.headers.get("user-agent", "")[:200]
+    ))
+    db.commit()
     return {"success": True, "token": token, "user": farmer_to_dict(farmer)}
 
 
@@ -1076,10 +1113,40 @@ def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
     if not farmer or farmer.password_hash != hash_password(req.password):
         raise HTTPException(status_code=401, detail="Wrong phone/email or password.")
 
-    # Issue a fresh token every login
-    farmer.token = make_token()
+    # Create a NEW session row instead of overwriting any existing one —
+    # this is what lets a farmer stay logged in on their phone AND laptop
+    # at the same time, without one login kicking the other out.
+    token = make_token()
+    db.add(AuthToken(
+        farmer_id=farmer.id, token=token,
+        device_info=request.headers.get("user-agent", "")[:200]
+    ))
     db.commit()
-    return {"success": True, "token": farmer.token, "user": farmer_to_dict(farmer)}
+    return {"success": True, "token": token, "user": farmer_to_dict(farmer)}
+
+
+@app.post("/auth/logout")
+def logout(farmer: Farmer = Depends(get_current_farmer),
+           credentials: HTTPAuthorizationCredentials = Depends(security),
+           db: Session = Depends(get_db)):
+    """
+    Logs out ONLY the current device/session — other devices where this
+    farmer is logged in stay logged in.
+    """
+    db.query(AuthToken).filter(AuthToken.token == credentials.credentials).delete()
+    db.commit()
+    return {"success": True}
+
+
+@app.post("/auth/logout-all")
+def logout_all_devices(farmer: Farmer = Depends(get_current_farmer), db: Session = Depends(get_db)):
+    """
+    Logs out EVERY device this farmer is signed in on — useful if they
+    suspect someone else has access, or just want a clean slate.
+    """
+    db.query(AuthToken).filter(AuthToken.farmer_id == farmer.id).delete()
+    db.commit()
+    return {"success": True}
 
 
 @app.get("/auth/me")
@@ -1602,102 +1669,6 @@ def get_stats(farmer: Farmer = Depends(get_current_farmer), db: Session = Depend
             disease_counts[s.disease] += 1
     top_diseases = sorted(disease_counts.items(), key=lambda x: -x[1])[:5]
 
-    # ── FINANCIAL TREND (last 6 months — bars: income/expense, line: net) ──
-    monthly_income:  dict = defaultdict(float)
-    monthly_expense: dict = defaultdict(float)
-    for r in profits:
-        try:
-            month_key = r.date[:7]  # "YYYY-MM"
-            if r.type == "income":
-                monthly_income[month_key] += r.amount
-            else:
-                monthly_expense[month_key] += r.amount
-        except Exception:
-            pass
-
-    def _month_key_label(months_back):
-        now = datetime.utcnow()
-        total = now.year * 12 + (now.month - 1) - months_back
-        y, m = divmod(total, 12)
-        m += 1
-        return f"{y:04d}-{m:02d}", datetime(y, m, 1).strftime("%b")
-
-    financial_trend = []
-    for i in range(5, -1, -1):
-        month_key, lbl = _month_key_label(i)
-        inc = round(monthly_income.get(month_key, 0), 2)
-        exp = round(monthly_expense.get(month_key, 0), 2)
-        financial_trend.append({"month": month_key, "label": lbl, "income": inc, "expense": exp, "net": round(inc - exp, 2)})
-
-    # Financial position: compare last 30 days net profit against the
-    # prior 30 days, so a farmer sees whether things are improving or not.
-    def _sum_between(days_ago_start, days_ago_end):
-        start = (datetime.utcnow() - timedelta(days=days_ago_start)).strftime("%Y-%m-%d")
-        end   = (datetime.utcnow() - timedelta(days=days_ago_end)).strftime("%Y-%m-%d")
-        total = 0.0
-        for r in profits:
-            if start <= r.date <= end:
-                total += r.amount if r.type == "income" else -r.amount
-        return total
-
-    last_30_net = _sum_between(30, 0)
-    prev_30_net = _sum_between(60, 31)
-    last_30_income = sum(r.amount for r in profits if (datetime.utcnow() - timedelta(days=30)).strftime("%Y-%m-%d") <= r.date and r.type == "income")
-
-    if last_30_net >= 0:
-        fin_status, fin_label = "healthy", "Profitable — income is covering expenses"
-    elif last_30_income > 0 and abs(last_30_net) < last_30_income * 0.3:
-        fin_status, fin_label = "tight", "Tight — expenses are close to income"
-    else:
-        fin_status, fin_label = "at_risk", "At risk — expenses are significantly higher than income"
-
-    financial_position = {
-        "status": fin_status,
-        "label": fin_label,
-        "last30Net": round(last_30_net, 2),
-        "prev30Net": round(prev_30_net, 2),
-        "improving": last_30_net > prev_30_net
-    }
-
-    # ── TASK COMPLETION TREND (last 6 months — bars: completed/overdue, line: completion rate) ──
-    monthly_completed: dict = defaultdict(int)
-    monthly_overdue:   dict = defaultdict(int)
-    monthly_total:     dict = defaultdict(int)
-    for t in tasks:
-        try:
-            month_key = t.scheduled_date[:7]
-            monthly_total[month_key] += 1
-            if t.done:
-                monthly_completed[month_key] += 1
-            elif t.scheduled_date < today:
-                monthly_overdue[month_key] += 1
-        except Exception:
-            pass
-
-    task_trend = []
-    for i in range(5, -1, -1):
-        month_key, lbl = _month_key_label(i)
-        comp  = monthly_completed.get(month_key, 0)
-        over  = monthly_overdue.get(month_key, 0)
-        tot   = monthly_total.get(month_key, 0)
-        rate  = round((comp / tot) * 100) if tot > 0 else 0
-        task_trend.append({"month": month_key, "label": lbl, "completed": comp, "overdue": over, "completionRate": rate})
-
-    # ── FARM HEALTH SCORE (0-100 composite) ──
-    # Blends four signals a farmer actually cares about day to day:
-    #   1. Crop health     — % of scans that came back healthy
-    #   2. Task discipline — % of tasks completed on time / not overdue
-    #   3. Stock readiness — % of inventory items NOT low/out of stock
-    #   4. Financial position — net profit healthy/tight/at risk (last 30 days)
-    scan_health_pct = (sum(1 for s in scans if s.status == "healthy") / len(scans) * 100) if scans else 100
-    non_overdue = sum(1 for t in tasks if t.done or t.scheduled_date >= today)
-    task_health_pct = (non_overdue / len(tasks) * 100) if tasks else 100
-    stock_ok = sum(1 for i in inventory if i.quantity > i.low_at)
-    stock_health_pct = (stock_ok / len(inventory) * 100) if inventory else 100
-    fin_health_pct = {"healthy": 100, "tight": 55, "at_risk": 15}[fin_status]
-
-    farm_health_score = round((scan_health_pct + task_health_pct + stock_health_pct + fin_health_pct) / 4)
-
     return {
         "scans": {
             "total":       len(scans),
@@ -1715,24 +1686,13 @@ def get_stats(farmer: Farmer = Depends(get_current_farmer), db: Session = Depend
             "totalIncome":  sum(r.amount for r in profits if r.type == "income"),
             "totalExpense": sum(r.amount for r in profits if r.type == "expense"),
             "netProfit":    sum(r.amount for r in profits if r.type == "income") -
-                            sum(r.amount for r in profits if r.type == "expense"),
-            "trend":        financial_trend,
-            "position":     financial_position
+                            sum(r.amount for r in profits if r.type == "expense")
         },
         "tasks": {
             "total":   len(tasks),
             "pending": sum(1 for t in tasks if not t.done),
             "overdue": sum(1 for t in tasks if not t.done and t.scheduled_date < today),
-            "done":    sum(1 for t in tasks if t.done),
-            "trend":   task_trend
-        },
-        "farmHealth": {
-            "score":               farm_health_score,
-            "scanHealth":          round(scan_health_pct),
-            "taskHealth":          round(task_health_pct),
-            "stockHealth":         round(stock_health_pct),
-            "financialHealth":     round(fin_health_pct),
-            "financialPosition":   financial_position
+            "done":    sum(1 for t in tasks if t.done)
         },
         "farmer": {
             "freePeriod":   is_free_period(farmer.registered_at),
