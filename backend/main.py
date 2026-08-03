@@ -1669,6 +1669,86 @@ def get_stats(farmer: Farmer = Depends(get_current_farmer), db: Session = Depend
             disease_counts[s.disease] += 1
     top_diseases = sorted(disease_counts.items(), key=lambda x: -x[1])[:5]
 
+    # ── 6-month buckets (oldest → newest, ending this month) ──
+    now = datetime.utcnow()
+    month_buckets = []
+    for i in range(5, -1, -1):
+        y, m = now.year, now.month - i
+        while m <= 0:
+            m += 12
+            y -= 1
+        month_buckets.append((y, m))
+
+    def _mlabel(y, m):
+        return datetime(y, m, 1).strftime("%b")
+
+    # ── Financial trend: income/expense/net per month ──
+    profit_trend = []
+    for (y, m) in month_buckets:
+        key = f"{y:04d}-{m:02d}"
+        inc = sum(r.amount for r in profits if r.type == "income" and (r.date or "").startswith(key))
+        exp = sum(r.amount for r in profits if r.type == "expense" and (r.date or "").startswith(key))
+        profit_trend.append({
+            "label":   _mlabel(y, m),
+            "income":  round(inc, 2),
+            "expense": round(exp, 2),
+            "net":     round(inc - exp, 2)
+        })
+
+    # ── Task trend: completed/overdue/completion-rate per month ──
+    task_trend = []
+    for (y, m) in month_buckets:
+        key = f"{y:04d}-{m:02d}"
+        month_tasks = [t for t in tasks if (t.scheduled_date or "").startswith(key)]
+        completed_m = sum(1 for t in month_tasks if t.done)
+        overdue_m   = sum(1 for t in month_tasks if not t.done and t.scheduled_date < today)
+        total_m     = len(month_tasks)
+        rate_m      = round((completed_m / total_m) * 100) if total_m else 0
+        task_trend.append({
+            "label":          _mlabel(y, m),
+            "completed":      completed_m,
+            "overdue":        overdue_m,
+            "completionRate": rate_m
+        })
+
+    # ── Farm Health Score (avg of 4 sub-scores) ──
+    total_scans_n = len(scans)
+    scan_health = round((sum(1 for s in scans if s.status == "healthy") / total_scans_n) * 100) if total_scans_n else 0
+
+    total_tasks_n = len(tasks)
+    task_health = round((sum(1 for t in tasks if t.done) / total_tasks_n) * 100) if total_tasks_n else 0
+
+    total_inv_n = len(inventory)
+    stock_health = round(((total_inv_n - sum(1 for i in inventory if i.quantity <= i.low_at)) / total_inv_n) * 100) if total_inv_n else 0
+
+    total_income = sum(r.amount for r in profits if r.type == "income")
+    total_expense = sum(r.amount for r in profits if r.type == "expense")
+    net_profit = total_income - total_expense
+
+    if total_income + total_expense == 0:
+        financial_health = 0
+        fin_status, fin_label = "tight", "No financial data yet"
+    else:
+        margin = (net_profit / total_income) if total_income else -1
+        financial_health = max(0, min(100, round(50 + margin * 50)))
+        if net_profit > total_expense * 0.2:
+            fin_status, fin_label = "healthy", "Finances healthy"
+        elif net_profit >= 0:
+            fin_status, fin_label = "tight", "Finances tight"
+        else:
+            fin_status, fin_label = "at_risk", "Finances at risk"
+
+    overall_score = round((scan_health + task_health + stock_health + financial_health) / 4)
+
+    farm_health = {
+        "score":             overall_score,
+        "scanHealth":        scan_health,
+        "taskHealth":        task_health,
+        "stockHealth":       stock_health,
+        "financialHealth":   financial_health,
+        "financialPosition": {"status": fin_status, "label": fin_label}
+    }
+
     return {
         "scans": {
             "total":       len(scans),
@@ -1686,14 +1766,17 @@ def get_stats(farmer: Farmer = Depends(get_current_farmer), db: Session = Depend
             "totalIncome":  sum(r.amount for r in profits if r.type == "income"),
             "totalExpense": sum(r.amount for r in profits if r.type == "expense"),
             "netProfit":    sum(r.amount for r in profits if r.type == "income") -
-                            sum(r.amount for r in profits if r.type == "expense")
+                            sum(r.amount for r in profits if r.type == "expense"),
+            "trend":        profit_trend
         },
         "tasks": {
             "total":   len(tasks),
             "pending": sum(1 for t in tasks if not t.done),
             "overdue": sum(1 for t in tasks if not t.done and t.scheduled_date < today),
-            "done":    sum(1 for t in tasks if t.done)
+            "done":    sum(1 for t in tasks if t.done),
+            "trend":   task_trend
         },
+        "farmHealth": farm_health,
         "farmer": {
             "freePeriod":   is_free_period(farmer.registered_at),
             "freeDaysLeft": max(0, 30 - (datetime.utcnow() - farmer.registered_at).days),
