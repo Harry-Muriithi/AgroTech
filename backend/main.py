@@ -23,7 +23,7 @@ import tensorflow as tf
 import numpy as np
 from PIL import Image
 import pickle
-import io, os, uuid, hashlib, secrets
+import io, os, uuid, hashlib, secrets, re
 from datetime import datetime, timedelta
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
@@ -195,6 +195,21 @@ class AuthToken(Base):
     created_at  = Column(DateTime, default=datetime.utcnow)
     last_used   = Column(DateTime, default=datetime.utcnow)
     farmer      = relationship("Farmer", back_populates="auth_tokens")
+
+
+class FinancialReportFile(Base):
+    """
+    Tracks who each generated financial-report PDF belongs to, so
+    /download/{filename} can check ownership before handing it over.
+    (Scan report PDFs are already linked to a farmer via Scan.pdf_file —
+    this table does the same job for financial reports, which aren't
+    otherwise stored in the database.)
+    """
+    __tablename__ = "financial_report_files"
+    id         = Column(Integer, primary_key=True, index=True)
+    farmer_id  = Column(Integer, ForeignKey("farmers.id"), nullable=False)
+    filename   = Column(String, unique=True, index=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class BalanceItem(Base):
@@ -1380,12 +1395,50 @@ def delete_scan(scan_id: int, farmer: Farmer = Depends(get_current_farmer),
     return {"success": True}
 
 
+# Only these two exact filename shapes are ever handed out by
+# generate_pdf_report() / generate_financial_report_pdf(). Anything else
+# (including "..", "/", or absolute paths) is rejected outright — this is
+# what stops path traversal, regardless of who is asking.
+_SCAN_REPORT_RE      = re.compile(r"^AgroTech_Report_[A-F0-9]{8}\.pdf$")
+_FINANCIAL_REPORT_RE = re.compile(r"^AgroTech_Financial_Report_[A-F0-9]{8}\.pdf$")
+
 @app.get("/download/{filename}")
-def download_report(filename: str):
-    """ Serves a PDF report file for download. """
+def download_report(
+    filename: str,
+    farmer: Optional[Farmer] = Depends(get_optional_farmer),
+    db: Session = Depends(get_db)
+):
+    """
+    Serves a PDF report file for download — but only:
+      1. If the filename matches an exact pattern we generated (blocks
+         path traversal like "../agrotech.db" or "../main.py"), AND
+      2. If the report belongs to a guest scan (no login required, same
+         as before) OR belongs to the logged-in farmer asking for it.
+    Anyone else's report, or an unrecognised filename, gets a 404 —
+    the same response whether the file doesn't exist or isn't yours,
+    so we don't reveal which one it was.
+    """
+    not_found = HTTPException(status_code=404, detail="Report not found.")
+
+    if _SCAN_REPORT_RE.match(filename):
+        scan = db.query(Scan).filter(Scan.pdf_file == filename).first()
+        if scan is None:
+            # No DB row = either a guest scan (never saved) or unknown file.
+            # Guest scans are only reachable if you already have the exact
+            # link, so we still allow it — but only for this exact pattern.
+            pass
+        elif farmer is None or scan.farmer_id != farmer.id:
+            raise not_found
+    elif _FINANCIAL_REPORT_RE.match(filename):
+        record = db.query(FinancialReportFile).filter(FinancialReportFile.filename == filename).first()
+        if record is None or farmer is None or record.farmer_id != farmer.id:
+            raise not_found
+    else:
+        raise not_found
+
     filepath = os.path.join(PDF_FOLDER, filename)
     if not os.path.exists(filepath):
-        raise HTTPException(status_code=404, detail="Report not found.")
+        raise not_found
     return FileResponse(filepath, media_type="application/pdf", filename=filename)
 
 
@@ -1594,6 +1647,8 @@ def get_financial_report(farmer: Farmer = Depends(get_current_farmer), db: Sessi
     liabilities= [i for i in items if i.kind == "liability"]
 
     filename = generate_financial_report_pdf(farmer.name, income, expense, assets, liabilities)
+    db.add(FinancialReportFile(farmer_id=farmer.id, filename=filename))
+    db.commit()
     return {"success": True, "filename": filename, "downloadUrl": f"/download/{filename}"}
 
 
@@ -1986,53 +2041,51 @@ def forgot_password(req: ForgotPasswordRequest, request: Request, background: Ba
     rate_limit(request, "forgot", max_calls=4, window_sec=60)
     """
     Step 1 of password reset.
-    Farmer enters their email. We check if it exists and send a code.
-    We now return a clear error if the email is not registered,
-    so the farmer knows to check their spelling or use a different email.
+    Farmer enters their email. If an account with that email exists,
+    we email them a code.
+
+    SECURITY NOTE: we always return the same success message whether or
+    not the email is registered. Confirming "this email exists" /
+    "this email doesn't exist" lets anyone build a list of your farmers'
+    email addresses just by trying them one by one — so the response
+    looks identical either way, and only a real, matching account
+    actually gets an email.
     """
     email = req.email.strip().lower()
     farmer = db.query(Farmer).filter(Farmer.email == email).first()
 
-    # If email not found — tell the farmer clearly
-    if not farmer:
-        raise HTTPException(
-            status_code=404,
-            detail="No account found with this email address. "
-                   "Please check your spelling, or register a new account."
-        )
-
-    # If farmer registered without adding an email
-    if not farmer.email:
-        raise HTTPException(
-            status_code=400,
-            detail="This account has no email address saved. "
-                   "Please contact support to reset your password."
-        )
-
-    # Generate a random 6-digit code
-    code = str(random.randint(100000, 999999))
-
-    farmer.reset_code    = code
-    farmer.reset_expires = datetime.utcnow() + timedelta(minutes=15)
-    db.commit()
-
-    # Send the email in the BACKGROUND so the app responds instantly.
-    # The farmer no longer waits for Gmail's SMTP server to finish.
-    background.add_task(send_reset_email, farmer.email, code, farmer.name)
-
-    return {
+    generic_response = {
         "success": True,
-        "message": "Reset code sent! Check your email inbox and spam folder."
+        "message": "If an account exists with this email, a reset code has been sent. "
+                    "Check your inbox and spam folder."
     }
+
+    # Only proceed if we found a real farmer with a real saved email.
+    # Either way, we return the exact same response below.
+    if farmer and farmer.email:
+        code = str(random.randint(100000, 999999))
+        farmer.reset_code    = code
+        farmer.reset_expires = datetime.utcnow() + timedelta(minutes=15)
+        db.commit()
+
+        # Send the email in the BACKGROUND so the app responds instantly.
+        background.add_task(send_reset_email, farmer.email, code, farmer.name)
+
+    return generic_response
 
 
 @app.post("/auth/reset-password")
-def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
+def reset_password(req: ResetPasswordRequest, request: Request, db: Session = Depends(get_db)):
     """
     Step 2 of password reset.
     Farmer enters the 6-digit code from their email + a new password.
     If the code is correct and not expired, the password is updated.
+
+    SECURITY NOTE: rate-limited per IP — a 6-digit code only has 1 million
+    possible values, so without a limit here someone could script through
+    all of them. This caps it to a handful of tries per minute.
     """
+    rate_limit(request, "reset_password", max_calls=6, window_sec=60)
     email = req.email.strip().lower()
     farmer = db.query(Farmer).filter(Farmer.email == email).first()
 
